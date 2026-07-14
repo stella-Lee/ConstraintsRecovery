@@ -1,0 +1,240 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/Enterprise/src/de/ovgu/featureide/examples/elevator/core/controller/ControlUnit.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/HomeBasic/src/de/ovgu/featureide/examples/elevator/core/controller/ControlUnit.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/HomePremium/src/de/ovgu/featureide/examples/elevator/core/controller/ControlUnit.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/Professional/src/de/ovgu/featureide/examples/elevator/core/controller/ControlUnit.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/Starter/src/de/ovgu/featureide/examples/elevator/core/controller/ControlUnit.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/Ultimate/src/de/ovgu/featureide/examples/elevator/core/controller/ControlUnit.java
+*/
+//#if Enterprise | HomeBasic | HomePremium | Professional | Starter | Ultimate
+package de.ovgu.featureide.examples.elevator.core.controller;
+import java.util.ArrayList;
+import java.util.List;
+//#if Enterprise | HomeBasic | HomePremium | Professional | Ultimate
+import java.util.concurrent.PriorityBlockingQueue;
+import de.ovgu.featureide.examples.elevator.core.controller.Request.RequestComparator;
+//#endif
+import de.ovgu.featureide.examples.elevator.core.model.Elevator;
+import de.ovgu.featureide.examples.elevator.core.model.ElevatorState;
+//#if Enterprise | HomeBasic | HomePremium | Professional | Ultimate
+public class ControlUnit implements Runnable, ITriggerListener {
+//#elif Starter
+public class ControlUnit implements Runnable {
+//#endif
+public static int TIME_DELAY = 700;
+public boolean run = true;
+private Elevator elevator;
+//#if HomeBasic | HomePremium
+private static final Object calc = new Object();
+private RequestComparator comparator = new RequestComparator();
+private PriorityBlockingQueue<Request> q = new PriorityBlockingQueue<>(1, comparator);
+//#elif Ultimate
+private static final Object calc = new Object();
+private RequestComparator comparator = new RequestComparator(this);
+private PriorityBlockingQueue<Request> q = new PriorityBlockingQueue<>(1, comparator);
+//#elif Enterprise | Professional
+private static final Object calc = new Object();
+private RequestComparator comparator = new Request.UpComparator(this);
+private RequestComparator downComparator = new Request.DownComparator(this);
+private PriorityBlockingQueue<Request> q = new PriorityBlockingQueue<>(1, comparator);
+//#endif
+private List<ITickListener> tickListener = new ArrayList<>();
+public ControlUnit(Elevator elevator) {
+this.elevator = elevator;
+}
+public void run() {
+while (run) {
+final ElevatorState state;
+//#if Enterprise | HomeBasic | HomePremium | Professional | Ultimate
+synchronized (calc) {
+//#endif
+state = calculateNextState();
+elevator.setCurrentState(state);
+switch(state) {
+case MOVING_UP:
+elevator.setDirection(ElevatorState.MOVING_UP);
+elevator.setCurrentFloor(elevator.getCurrentFloor() + 1);
+break;
+case MOVING_DOWN:
+elevator.setDirection(ElevatorState.MOVING_DOWN);
+elevator.setCurrentFloor(elevator.getCurrentFloor() - 1);
+break;
+case FLOORING:
+this.triggerOnTick();
+break;
+}
+//#if Enterprise | Professional
+sortQueue();
+}
+//#elif HomeBasic | HomePremium | Ultimate
+}
+//#endif
+try {
+Thread.sleep(TIME_DELAY);
+} catch (InterruptedException e) {
+}
+switch(state) {
+case MOVING_UP:
+this.triggerOnTick();
+break;
+case MOVING_DOWN:
+this.triggerOnTick();
+break;
+default:
+break;
+}
+}
+}
+private ElevatorState calculateNextState() {
+final int currentFloor = elevator.getCurrentFloor();
+//#if Starter
+switch(elevator.getCurrentState()) {
+case FLOORING:
+switch(elevator.getDirection()) {
+case MOVING_DOWN:
+return (currentFloor <= elevator.getMinFloor()) ? ElevatorState.MOVING_UP : ElevatorState.MOVING_DOWN;
+case MOVING_UP:
+return (currentFloor >= elevator.getMaxFloor()) ? ElevatorState.MOVING_DOWN : ElevatorState.MOVING_UP;
+default:
+return ElevatorState.MOVING_UP;
+//#elif Enterprise | HomePremium | Ultimate
+if (isInService()) {
+if (currentFloor != elevator.getMinFloor()) {
+return ElevatorState.MOVING_DOWN;
+} else {
+return ElevatorState.FLOORING;
+//#elif HomeBasic | Professional
+return getElevatorState(currentFloor);
+//#endif
+}
+//#if Enterprise | HomePremium | Ultimate
+}
+return getElevatorState(currentFloor);
+}
+private ElevatorState getElevatorState(int currentFloor) {
+if (!q.isEmpty()) {
+Request poll = q.peek();
+int floor = poll.getFloor();
+if (floor == currentFloor) {
+do {
+triggerOnRequest(q.poll());
+poll = q.peek();
+} while (poll != null && poll.getFloor() == currentFloor);
+//#elif HomeBasic | Professional
+private ElevatorState getElevatorState(int currentFloor) {
+if (!q.isEmpty()) {
+Request poll = q.peek();
+int floor = poll.getFloor();
+if (floor == currentFloor) {
+do {
+triggerOnRequest(q.poll());
+poll = q.peek();
+} while (poll != null && poll.getFloor() == currentFloor);
+//#elif Starter
+default:
+//#endif
+return ElevatorState.FLOORING;
+//#if Enterprise | HomeBasic | HomePremium | Professional | Ultimate
+} else if (floor > currentFloor) {
+return ElevatorState.MOVING_UP;
+} else {
+return ElevatorState.MOVING_DOWN;
+//#endif
+}
+}
+//#if Enterprise | Professional
+return ElevatorState.FLOORING;
+}
+private void sortQueue() {
+final ElevatorState direction = elevator.getCurrentState();
+final PriorityBlockingQueue<Request> pQueue;
+switch(direction) {
+case MOVING_DOWN:
+pQueue = new PriorityBlockingQueue<>(Math.max(1, q.size()), downComparator);
+break;
+case MOVING_UP:
+pQueue = new PriorityBlockingQueue<>(Math.max(1, q.size()), comparator);
+break;
+default:
+return;
+}
+q.drainTo(pQueue);
+q = pQueue;
+}
+//#elif HomeBasic | HomePremium | Ultimate
+return ElevatorState.FLOORING;
+}
+//#endif
+public void addTickListener(ITickListener ticker) {
+this.tickListener.add(ticker);
+}
+private void triggerOnTick() {
+for (ITickListener listener : this.tickListener) {
+listener.onTick(elevator);
+}
+}
+//#if Enterprise | HomeBasic | HomePremium | Professional | Ultimate
+private void triggerOnRequest(Request request) {
+for (ITickListener listener : this.tickListener) {
+listener.onRequestFinished(elevator, request);
+//#endif
+}
+//#if HomePremium
+}
+@Override
+public void trigger(Request req) {
+synchronized (calc) {
+q.offer(req);
+}
+}
+public int getCurrentFloor() {
+return elevator.getCurrentFloor();
+}
+public void setService(boolean modus) {
+elevator.setService(modus);
+}
+public boolean isInService() {
+return elevator.isInService();
+}
+}
+//#elif Enterprise | Ultimate
+}
+@Override
+public void trigger(Request req) {
+synchronized (calc) {
+q.offer(req);
+}
+}
+public int getCurrentFloor() {
+return elevator.getCurrentFloor();
+}
+public void setService(boolean modus) {
+elevator.setService(modus);
+}
+public boolean isInService() {
+return elevator.isInService();
+}
+public void setDisabledFloors(List<Integer> disabledFloors) {
+elevator.setDisabledFloors(disabledFloors);
+}
+public List<Integer> getDisabledFloors() {
+return elevator.getDisabledFloors();
+}
+public boolean isDisabledFloor(int level) {
+return !elevator.getDisabledFloors().contains(level);
+}
+}
+//#elif HomeBasic | Professional
+}
+@Override
+public void trigger(Request req) {
+synchronized (calc) {
+q.offer(req);
+}
+}
+public int getCurrentFloor() {
+return elevator.getCurrentFloor();
+}
+}
+//#endif
+//#endif

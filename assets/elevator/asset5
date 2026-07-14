@@ -1,0 +1,111 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/Enterprise/src/de/ovgu/featureide/examples/elevator/sim/SimulationUnit.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/HomeBasic/src/de/ovgu/featureide/examples/elevator/sim/SimulationUnit.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/HomePremium/src/de/ovgu/featureide/examples/elevator/sim/SimulationUnit.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/Professional/src/de/ovgu/featureide/examples/elevator/sim/SimulationUnit.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/Starter/src/de/ovgu/featureide/examples/elevator/sim/SimulationUnit.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/Ultimate/src/de/ovgu/featureide/examples/elevator/sim/SimulationUnit.java
+*/
+//#if Enterprise | HomeBasic | HomePremium | Professional | Starter | Ultimate
+package de.ovgu.featureide.examples.elevator.sim;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+//#if Enterprise | Ultimate
+import java.util.List;
+//#endif
+import de.ovgu.featureide.examples.elevator.core.controller.ControlUnit;
+import de.ovgu.featureide.examples.elevator.core.controller.ITickListener;
+//#if Enterprise | HomeBasic | HomePremium | Professional | Ultimate
+import de.ovgu.featureide.examples.elevator.core.controller.ITriggerListener;
+import de.ovgu.featureide.examples.elevator.core.controller.Request;
+//#endif
+import de.ovgu.featureide.examples.elevator.core.model.Elevator;
+import de.ovgu.featureide.examples.elevator.ui.MainWindow;
+public class SimulationUnit {
+//#if Enterprise | HomeBasic | HomePremium | Professional | Ultimate
+private ITriggerListener triggerListener;
+//#endif
+private static MainWindow simulationWindow;
+private ControlUnit controller;
+public static void main(String[] args) {
+SimulationUnit sim = new SimulationUnit();
+//#if Enterprise | HomeBasic | HomePremium | Professional | Ultimate
+simulationWindow = new MainWindow(sim);
+//#elif Starter
+simulationWindow = new MainWindow();
+//#endif
+sim.start(5);
+}
+public void start(int maxFloor) {
+Elevator elevator = new Elevator(maxFloor);
+controller = new ControlUnit(elevator);
+//#if Enterprise | HomeBasic | HomePremium | Professional | Ultimate
+this.setTriggerListener(controller);
+//#endif
+Thread controllerThread = new Thread(controller);
+controller.addTickListener(new ITickListener() {
+public void onTick(Elevator elevator) {
+System.out.printf(String.format("%s - %s -- Current Floor %d Next Floor %d \n", new SimpleDateFormat("HH:mm:ss").format(new Date()), elevator.getCurrentState(), elevator.getCurrentFloor(), Integer.MAX_VALUE));
+}
+//#if Enterprise | HomeBasic | HomePremium | Professional | Ultimate
+@Override
+public void onRequestFinished(Elevator elevator, Request request) {
+}
+//#endif
+});
+controller.addTickListener(simulationWindow);
+simulationWindow.initialize(elevator.getMaxFloor());
+controllerThread.start();
+}
+//#if Enterprise | HomeBasic | HomePremium | Professional | Ultimate
+public void setTriggerListener(ITriggerListener listener) {
+this.triggerListener = listener;
+//#endif
+}
+//#if HomePremium
+public void floorRequest(Request floorRequest) {
+this.triggerListener.trigger(floorRequest);
+}
+public int getCurrentFloor() {
+return controller.getCurrentFloor();
+}
+public void toggleService() {
+controller.setService(!controller.isInService());
+}
+public boolean isInService() {
+return controller.isInService();
+}
+}
+//#elif HomeBasic | Professional
+public void floorRequest(Request floorRequest) {
+this.triggerListener.trigger(floorRequest);
+}
+public int getCurrentFloor() {
+return controller.getCurrentFloor();
+}
+}
+//#elif Enterprise | Ultimate
+public void floorRequest(Request floorRequest) {
+this.triggerListener.trigger(floorRequest);
+}
+public int getCurrentFloor() {
+return controller.getCurrentFloor();
+}
+public void toggleService() {
+controller.setService(!controller.isInService());
+}
+public boolean isInService() {
+return controller.isInService();
+}
+public void setDisabledFloors(List<Integer> disabledFloors) {
+this.controller.setDisabledFloors(disabledFloors);
+}
+public List<Integer> getDisabledFloors() {
+return this.controller.getDisabledFloors();
+}
+public boolean isDisabledFloor(int level) {
+return this.controller.isDisabledFloor(level);
+}
+}
+//#endif
+//#endif

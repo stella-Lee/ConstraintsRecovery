@@ -1,0 +1,16 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/Enterprise/src/de/ovgu/featureide/examples/elevator/core/model/ElevatorState.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/HomeBasic/src/de/ovgu/featureide/examples/elevator/core/model/ElevatorState.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/HomePremium/src/de/ovgu/featureide/examples/elevator/core/model/ElevatorState.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/Professional/src/de/ovgu/featureide/examples/elevator/core/model/ElevatorState.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/Starter/src/de/ovgu/featureide/examples/elevator/core/model/ElevatorState.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/Ultimate/src/de/ovgu/featureide/examples/elevator/core/model/ElevatorState.java
+*/
+//#if Enterprise | HomeBasic | HomePremium | Professional | Starter | Ultimate
+package de.ovgu.featureide.examples.elevator.core.model;
+public enum ElevatorState {
+MOVING_UP,
+MOVING_DOWN,
+FLOORING;
+}
+//#endif

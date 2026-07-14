@@ -1,0 +1,13 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/Enterprise/src/de/ovgu/featureide/examples/elevator/core/controller/ITriggerListener.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/HomeBasic/src/de/ovgu/featureide/examples/elevator/core/controller/ITriggerListener.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/HomePremium/src/de/ovgu/featureide/examples/elevator/core/controller/ITriggerListener.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/Professional/src/de/ovgu/featureide/examples/elevator/core/controller/ITriggerListener.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/Ultimate/src/de/ovgu/featureide/examples/elevator/core/controller/ITriggerListener.java
+*/
+//#if Enterprise | HomeBasic | HomePremium | Professional | Ultimate
+package de.ovgu.featureide.examples.elevator.core.controller;
+public interface ITriggerListener {
+void trigger(Request request);
+}
+//#endif
