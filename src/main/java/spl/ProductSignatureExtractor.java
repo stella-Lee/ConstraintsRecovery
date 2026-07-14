@@ -12,8 +12,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public final class ProductSignatureExtractor {
     private static final Pattern DIRECTIVE_PATTERN =
@@ -75,15 +77,16 @@ public final class ProductSignatureExtractor {
     private static void openIf(Path file, int lineNumber, String expression,
                                List<ConditionalBlock> roots, ArrayDeque<ConditionalFrame> stack) {
         List<ConditionalBlock> target = currentChildren(roots, stack);
+        ProductSignature parentSignature = currentSignature(stack);
         ConditionalBlock block = new ConditionalBlock(
                 file,
                 DirectiveType.IF,
                 lineNumber,
                 stack.size(),
-                new ProductSignature(expression)
+                effectiveSignature(expression, parentSignature)
         );
         target.add(block);
-        stack.push(new ConditionalFrame(target, block, stack.size()));
+        stack.push(new ConditionalFrame(target, block, stack.size(), parentSignature));
     }
 
     private static void switchBranch(Path file, DirectiveType type, int lineNumber, String expression,
@@ -98,7 +101,9 @@ public final class ProductSignatureExtractor {
                 type,
                 lineNumber,
                 frame.depth(),
-                new ProductSignature(expression)
+                type == DirectiveType.ELIF
+                        ? effectiveSignature(expression, frame.parentSignature())
+                        : new ProductSignature("")
         );
         frame.siblings().add(block);
         frame.setCurrentBranch(block);
@@ -128,6 +133,25 @@ public final class ProductSignatureExtractor {
         return stack.peek().currentBranch().mutableChildren();
     }
 
+    private static ProductSignature effectiveSignature(String expression, ProductSignature parentSignature) {
+        ProductSignature ownSignature = new ProductSignature(expression);
+        if (parentSignature == null) {
+            return ownSignature;
+        }
+        Set<String> parentProducts = parentSignature.productIds().stream().collect(Collectors.toSet());
+        String intersection = ownSignature.productIds().stream()
+                .filter(parentProducts::contains)
+                .collect(Collectors.joining("|"));
+        return new ProductSignature(intersection);
+    }
+
+    private static ProductSignature currentSignature(ArrayDeque<ConditionalFrame> stack) {
+        if (stack.isEmpty()) {
+            return null;
+        }
+        return stack.peek().currentBranch().signature();
+    }
+
     private static DirectiveType parseDirectiveType(String token) {
         return DirectiveType.valueOf(token.toUpperCase(Locale.ROOT));
     }
@@ -135,12 +159,15 @@ public final class ProductSignatureExtractor {
     private static final class ConditionalFrame {
         private final List<ConditionalBlock> siblings;
         private final int depth;
+        private final ProductSignature parentSignature;
         private ConditionalBlock currentBranch;
 
-        private ConditionalFrame(List<ConditionalBlock> siblings, ConditionalBlock currentBranch, int depth) {
+        private ConditionalFrame(List<ConditionalBlock> siblings, ConditionalBlock currentBranch, int depth,
+                                 ProductSignature parentSignature) {
             this.siblings = siblings;
             this.currentBranch = currentBranch;
             this.depth = depth;
+            this.parentSignature = parentSignature;
         }
 
         private List<ConditionalBlock> siblings() {
@@ -157,6 +184,10 @@ public final class ProductSignatureExtractor {
 
         private int depth() {
             return depth;
+        }
+
+        private ProductSignature parentSignature() {
+            return parentSignature;
         }
     }
 

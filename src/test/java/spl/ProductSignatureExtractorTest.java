@@ -57,7 +57,7 @@ class ProductSignatureExtractorTest {
     void preservesNestedConditionalStructure() throws Exception {
         Path file = tempDir.resolve("Nested.java");
         Files.writeString(file, """
-                //#if OUTER
+                //#if OUTER|INNER_A|INNER_B
                 int a;
                 //#if INNER_A|INNER_B
                 int b;
@@ -71,7 +71,7 @@ class ProductSignatureExtractorTest {
         ConditionalBlock outer = blocks.get(0);
         assertEquals(ConditionalBlock.DirectiveType.IF, outer.directiveType());
         assertEquals(0, outer.nestingDepth());
-        assertEquals(List.of("OUTER"), outer.signature().productIds());
+        assertEquals(List.of("OUTER", "INNER_A", "INNER_B"), outer.signature().productIds());
         assertEquals(2, outer.children().size());
 
         ConditionalBlock inner = outer.children().get(0);
@@ -84,5 +84,31 @@ class ProductSignatureExtractorTest {
         ConditionalBlock innerEnd = outer.children().get(1);
         assertEquals(ConditionalBlock.DirectiveType.ENDIF, innerEnd.directiveType());
         assertEquals(1, innerEnd.nestingDepth());
+    }
+
+    @Test
+    void restoresEnclosingSignatureAfterNestedEndif() throws Exception {
+        Path file = tempDir.resolve("NestedThenSibling.java");
+        Files.writeString(file, """
+                //#if Enterprise|Professional
+                //#if Professional|Starter
+                int nested;
+                //#endif
+                int afterNested;
+                //#if Enterprise
+                int sibling;
+                //#endif
+                //#endif
+                """);
+
+        List<ConditionalBlock> blocks = new ProductSignatureExtractor().extractFromFile(file);
+
+        ConditionalBlock outer = blocks.get(0);
+        ConditionalBlock nested = outer.children().get(0);
+        ConditionalBlock sibling = outer.children().get(2);
+
+        assertEquals(List.of("Enterprise", "Professional"), outer.signature().productIds());
+        assertEquals(List.of("Professional"), nested.signature().productIds());
+        assertEquals(List.of("Enterprise"), sibling.signature().productIds());
     }
 }
