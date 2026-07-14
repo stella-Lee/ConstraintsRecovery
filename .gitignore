@@ -1,0 +1,19 @@
+target/
+
+# Generated analysis output
+output/*
+!output/.gitkeep
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# VS Code
+.vscode/
