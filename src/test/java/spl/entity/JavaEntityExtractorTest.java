@@ -220,6 +220,78 @@ class JavaEntityExtractorTest {
     }
 
     @Test
+    void mergesSameMethodWhenProjectionEndLinesDiffer() throws Exception {
+        Path file = writeSample("""
+                //#if Enterprise|Professional
+                class Shared {
+                    void run() {
+                        int common = 1;
+                        //#if Enterprise
+                        int enterprise = common;
+                        //#endif
+                    }
+                }
+                //#endif
+                """);
+
+        EntityExtractionResult result = extract(file);
+        List<JavaEntity> methods = result.entities().stream()
+                .filter(entity -> entity.entityType() == JavaEntityType.METHOD)
+                .filter(entity -> entity.simpleName().equals("run"))
+                .toList();
+
+        assertEquals(1, methods.size());
+        assertEquals(List.of("Enterprise", "Professional"), methods.get(0).observedProducts());
+    }
+
+    @Test
+    void mapsRelationSourceUsingNearestDeclarationAncestor() throws Exception {
+        Path file = writeSample("""
+                //#if Enterprise
+                class SourceMapping {
+                    Runnable task;
+                    void run() {
+                        task.run();
+                    }
+                }
+                //#endif
+                """);
+
+        EntityExtractionResult result = extract(file);
+
+        assertTrue(result.relations().stream()
+                .filter(relation -> relation.relationType() == JavaRelationType.METHOD_CALL)
+                .filter(relation -> relation.unresolvedTargetText().equals("run"))
+                .allMatch(relation -> relation.sourceEntityId() != null));
+    }
+
+    @Test
+    void classifiesKnownLibraryTypesAsResolvedExternal() throws Exception {
+        Path file = writeSample("""
+                //#if Enterprise
+                class UsesExternal implements Runnable {
+                    List values;
+                    Dimension size;
+                    public void run() {
+                    }
+                }
+                //#endif
+                """);
+
+        EntityExtractionResult result = extract(file);
+
+        assertTrue(result.relations().stream()
+                .anyMatch(relation -> relation.unresolvedTargetText().equals("Runnable")
+                        && relation.resolutionStatus() == ResolutionStatus.RESOLVED_EXTERNAL));
+        assertTrue(result.relations().stream()
+                .anyMatch(relation -> relation.unresolvedTargetText().equals("List")
+                        && relation.resolutionStatus() == ResolutionStatus.RESOLVED_EXTERNAL));
+        assertTrue(result.relations().stream()
+                .anyMatch(relation -> relation.unresolvedTargetText().equals("Dimension")
+                        && relation.resolutionStatus() == ResolutionStatus.RESOLVED_EXTERNAL));
+    }
+
+    @Test
     void associatesCommonCodeOutsideDirectivesWithCompleteProductUniverse() throws Exception {
         Path file = writeSample("""
                 class Common {

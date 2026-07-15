@@ -7,11 +7,32 @@ import spl.entity.JavaEntityExtractor;
 import spl.entity.JavaEntityType;
 import spl.entity.JavaRelation;
 import spl.entity.JavaRelationType;
+import spl.entity.ResolutionStatus;
 import spl.grouping.SignatureBlockGrouper;
 import spl.grouping.SignatureGroup;
+import spl.dependency.CrossFileDependencyGraphBuilder;
+import spl.dependency.DependencyEdge;
+import spl.dependency.DependencyGraph;
+import spl.dependency.DependencyGraphExporter;
+import spl.dependency.UnresolvedDependencyRelation;
+import spl.feature.CandidateClassificationStatus;
+import spl.feature.CandidateDependencyScope;
+import spl.feature.FeatureEffectCandidate;
+import spl.feature.FeatureEffectCandidateBuilder;
+import spl.feature.FeatureEffectCandidateExporter;
+import spl.feature.FeatureEffectCandidateResult;
+import spl.feature.AggregatedFeatureEffectCandidate;
+import spl.feature.CandidateConfidence;
+import spl.feature.CommonalityClassification;
+import spl.feature.EvidenceConfidence;
+import spl.feature.SemanticAggregationExporter;
+import spl.feature.SemanticAggregationResult;
+import spl.feature.SemanticFeatureEffectAggregator;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
@@ -19,14 +40,20 @@ import java.util.stream.Collectors;
 
 public final class SPLAnalyzerMain {
     public static void main(String[] args) throws Exception {
-        if (args.length > 1) {
-            System.err.println("Usage: java spl.SPLAnalyzerMain [asset-subdirectory]");
+        CommandLine commandLine;
+        try {
+            commandLine = CommandLine.parse(args);
+        } catch (IllegalArgumentException exception) {
+            System.err.println(exception.getMessage());
+            System.err.println("Usage: java spl.SPLAnalyzerMain [asset-subdirectory] [--candidate-details <candidate-id>]");
             return;
         }
 
         AssetProjectPathResolver pathResolver = new AssetProjectPathResolver();
         System.out.println("Base asset directory: " + pathResolver.baseDirectoryDisplay());
-        String assetSubdirectory = args.length == 1 ? args[0] : promptForAssetSubdirectory();
+        String assetSubdirectory = commandLine.assetSubdirectory() == null
+                ? promptForAssetSubdirectory()
+                : commandLine.assetSubdirectory();
         AssetProjectPathResolver.ResolvedAssetProject assetProject;
         try {
             assetProject = pathResolver.resolve(assetSubdirectory);
@@ -45,6 +72,21 @@ public final class SPLAnalyzerMain {
         EntityExtractionResult entityResult = new JavaEntityExtractor().extract(groups, assetFiles);
         new EntityResultExporter().export(entityResult, Path.of("output"));
         printEntitySummary(groups, entityResult);
+
+        DependencyGraph graph = new CrossFileDependencyGraphBuilder().build(entityResult);
+        new DependencyGraphExporter().export(graph, Path.of("output"));
+        printDependencySummary(graph);
+
+        FeatureEffectCandidateResult candidateResult = new FeatureEffectCandidateBuilder()
+                .build(groups, entityResult.entities(), graph);
+        new FeatureEffectCandidateExporter().export(candidateResult, Path.of("output"));
+        printFeatureEffectSummary(groups, candidateResult);
+        SemanticAggregationResult semanticResult = new SemanticFeatureEffectAggregator().aggregate(candidateResult, groups);
+        new SemanticAggregationExporter().export(semanticResult, Path.of("output"));
+        printSemanticAggregationSummary(semanticResult);
+        if (commandLine.candidateDetailsId() != null) {
+            printCandidateDetails(candidateResult, semanticResult, commandLine.candidateDetailsId());
+        }
     }
 
     private static String promptForAssetSubdirectory() {
@@ -174,5 +216,340 @@ public final class SPLAnalyzerMain {
                         relation.effectiveProductSignature(),
                         relation.signatureGroupId()
                 ));
+    }
+
+    private static void printDependencySummary(DependencyGraph graph) {
+        System.out.println();
+        System.out.println("Dependency graph:");
+        System.out.println("Graph nodes          : " + graph.nodes().size());
+        System.out.println("Resolved graph edges : " + graph.edges().size());
+        System.out.println("Unresolved relations : " + graph.unresolvedRelations().size());
+        System.out.println("Cross-file edges     : " + graph.edges().stream().filter(DependencyEdge::crossFile).count());
+        System.out.println("Same-file edges      : " + graph.edges().stream().filter(edge -> !edge.crossFile()).count());
+        System.out.println("External targets     : " + graph.unresolvedRelations().stream()
+                .filter(relation -> relation.failureReason().equals("external target"))
+                .count());
+        System.out.println("Ambiguous relations  : " + graph.unresolvedRelations().stream()
+                .filter(relation -> relation.resolutionStatus() == ResolutionStatus.AMBIGUOUS)
+                .count());
+        System.out.println("Missing source rels  : " + graph.unresolvedRelations().stream()
+                .filter(relation -> relation.failureReason().equals("missing source entity"))
+                .count());
+        System.out.println("Invalid ctor targets : " + invalidConstructorTargetCount(graph));
+
+        System.out.println("Edges by relation type:");
+        Map<JavaRelationType, Long> byType = graph.edges().stream()
+                .collect(Collectors.groupingBy(DependencyEdge::relationType, Collectors.counting()));
+        for (JavaRelationType type : JavaRelationType.values()) {
+            System.out.println("- " + type + ": " + byType.getOrDefault(type, 0L));
+        }
+
+        System.out.println("Resolved external relations by type:");
+        Map<JavaRelationType, Long> externalByType = graph.unresolvedRelations().stream()
+                .filter(relation -> relation.resolutionStatus() == ResolutionStatus.RESOLVED_EXTERNAL)
+                .collect(Collectors.groupingBy(UnresolvedDependencyRelation::relationType, Collectors.counting()));
+        for (JavaRelationType type : JavaRelationType.values()) {
+            System.out.println("- " + type + ": " + externalByType.getOrDefault(type, 0L));
+        }
+
+        System.out.println("Edges by source SignatureGroup:");
+        graph.edges().stream()
+                .collect(Collectors.groupingBy(DependencyEdge::sourceGroupId, Collectors.counting()))
+                .entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> System.out.println("- " + entry.getKey() + ": " + entry.getValue()));
+
+        System.out.println("Top SignatureGroup dependency pairs:");
+        graph.edges().stream()
+                .collect(Collectors.groupingBy(
+                        edge -> edge.sourceGroupId() + " -> " + edge.targetGroupId(),
+                        Collectors.groupingBy(DependencyEdge::relationType, Collectors.counting())
+                ))
+                .entrySet()
+                .stream()
+                .sorted(Comparator.<Map.Entry<String, Map<JavaRelationType, Long>>>comparingLong(
+                        entry -> -entry.getValue().values().stream().mapToLong(Long::longValue).sum()
+                ).thenComparing(Map.Entry::getKey))
+                .limit(10)
+                .forEach(entry -> {
+                    System.out.println(entry.getKey());
+                    entry.getValue().entrySet().stream()
+                            .sorted(Map.Entry.comparingByKey())
+                            .forEach(typeCount -> System.out.println(typeCount.getKey() + ": " + typeCount.getValue()));
+                });
+    }
+
+    private static long invalidConstructorTargetCount(DependencyGraph graph) {
+        Map<String, JavaEntityType> nodeTypes = graph.nodes().stream()
+                .collect(Collectors.toMap(node -> node.entityId(), node -> node.entityType()));
+        return graph.edges().stream()
+                .filter(edge -> edge.relationType() == JavaRelationType.CONSTRUCTOR_CALL)
+                .filter(edge -> nodeTypes.get(edge.targetEntityId()) != JavaEntityType.CONSTRUCTOR)
+                .count();
+    }
+
+    private static void printFeatureEffectSummary(List<SignatureGroup> groups,
+                                                  FeatureEffectCandidateResult result) {
+        System.out.println();
+        System.out.println("Feature-effect candidates:");
+        System.out.println("SignatureGroups           : " + groups.size());
+        System.out.println("Total candidates          : " + result.candidates().size());
+        System.out.println("Isolated candidates       : " + result.candidates().stream()
+                .filter(candidate -> candidate.classificationStatus() == CandidateClassificationStatus.ISOLATED_ENTITY)
+                .count());
+        System.out.println("Block-only candidates     : " + result.candidates().stream()
+                .filter(candidate -> candidate.classificationStatus() == CandidateClassificationStatus.BLOCK_ONLY)
+                .count());
+        System.out.println("Unassigned entities       : 0");
+        System.out.println("Unassigned blocks         : " + result.unassignedBlocks().size());
+        System.out.println("Cross-file candidates     : " + result.candidates().stream()
+                .filter(candidate -> candidate.involvedAssetFiles().size() > 1)
+                .count());
+        System.out.println("Candidate dependencies    : " + result.candidateDependencies().stream()
+                .filter(dependency -> dependency.dependencyScope() != CandidateDependencyScope.INTERNAL_CANDIDATE)
+                .mapToInt(dependency -> dependency.edgeCount())
+                .sum());
+
+        System.out.println("Candidates per SignatureGroup:");
+        Map<String, Long> candidatesByGroup = result.candidates().stream()
+                .collect(Collectors.groupingBy(FeatureEffectCandidate::signatureGroupId, Collectors.counting()));
+        for (SignatureGroup group : groups) {
+            System.out.println("- " + group.groupId() + ": " + candidatesByGroup.getOrDefault(group.groupId(), 0L));
+        }
+
+        System.out.println("Entity-count distribution:");
+        printDistribution(result.candidates().stream()
+                .map(candidate -> candidate.memberEntities().size())
+                .toList());
+        System.out.println("Block-count distribution:");
+        printDistribution(result.candidates().stream()
+                .map(candidate -> candidate.memberBlocks().size())
+                .toList());
+
+        System.out.println("Top ten largest candidates:");
+        result.candidates().stream()
+                .sorted(Comparator.<FeatureEffectCandidate>comparingInt(
+                        candidate -> -candidate.memberEntities().size()
+                ).thenComparing(FeatureEffectCandidate::candidateId))
+                .limit(10)
+                .forEach(candidate -> {
+                    System.out.printf(
+                            "%s group=%s signature=%s entities=%d blocks=%d files=%d%n",
+                            candidate.candidateId(),
+                            candidate.signatureGroupId(),
+                            candidate.productSignature(),
+                            candidate.memberEntities().size(),
+                            candidate.memberBlocks().size(),
+                            candidate.involvedAssetFiles().size()
+                    );
+                    FeatureEffectCandidateExporter.internalEdgeCounts(candidate)
+                            .forEach((type, count) -> System.out.println("- " + type + ": " + count));
+                });
+    }
+
+    private static void printDistribution(List<Integer> values) {
+        values.stream()
+                .collect(Collectors.groupingBy(value -> value, Collectors.counting()))
+                .entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> System.out.println("- " + entry.getKey() + ": " + entry.getValue()));
+    }
+
+    private static void printSemanticAggregationSummary(SemanticAggregationResult result) {
+        System.out.println();
+        System.out.println("Semantic aggregation:");
+        System.out.println("Structural components       : " + result.evidenceByComponentId().size());
+        System.out.println("Aggregated candidates       : " + result.candidates().size());
+        System.out.println("Merged components           : " + result.candidates().stream()
+                .filter(candidate -> candidate.structuralComponentIds().size() > 1)
+                .mapToInt(candidate -> candidate.structuralComponentIds().size())
+                .sum());
+        System.out.println("Unassigned components       : " + result.unassignedComponents().size());
+        System.out.println("Unlabeled candidates        : " + result.candidates().stream()
+                .filter(candidate -> candidate.labelConfidence() == EvidenceConfidence.UNLABELED)
+                .count());
+        System.out.println("Full commonality candidates : " + countCommonality(result, CommonalityClassification.FULL_COMMONALITY));
+        System.out.println("Subgroup commonality cand.  : " + countCommonality(result, CommonalityClassification.SUBGROUP_COMMONALITY));
+        System.out.println("Variable-signature cand.    : " + countCommonality(result, CommonalityClassification.VARIABLE_SIGNATURE));
+
+        System.out.println("Aggregated candidates per SignatureGroup:");
+        result.candidates().stream()
+                .collect(Collectors.groupingBy(AggregatedFeatureEffectCandidate::signatureGroupId, Collectors.counting()))
+                .entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> System.out.println("- " + entry.getKey() + ": " + entry.getValue()));
+
+        System.out.println("Label confidence distribution:");
+        for (EvidenceConfidence confidence : EvidenceConfidence.values()) {
+            long count = result.candidates().stream()
+                    .filter(candidate -> candidate.labelConfidence() == confidence)
+                    .count();
+            System.out.println("- " + confidence + ": " + count);
+        }
+        System.out.println("Candidate confidence distribution:");
+        for (CandidateConfidence confidence : CandidateConfidence.values()) {
+            long count = result.candidates().stream()
+                    .filter(candidate -> candidate.candidateConfidence() == confidence)
+                    .count();
+            System.out.println("- " + confidence + ": " + count);
+        }
+
+        System.out.println("Top ten aggregated candidates by entity count:");
+        result.candidates().stream()
+                .sorted(Comparator.<AggregatedFeatureEffectCandidate>comparingInt(
+                        candidate -> -candidate.memberEntities().size()
+                ).thenComparing(AggregatedFeatureEffectCandidate::candidateId))
+                .limit(10)
+                .forEach(candidate -> System.out.printf(
+                        "%s signature=%s label=%s confidence=%s components=%d entities=%d files=%d tokens=%s evidence=%s%n",
+                        candidate.candidateId(),
+                        candidate.productSignature(),
+                        candidate.suggestedLabel().isBlank() ? "<unlabeled>" : candidate.suggestedLabel(),
+                        candidate.candidateConfidence(),
+                        candidate.structuralComponentIds().size(),
+                        candidate.memberEntities().size(),
+                        candidate.involvedFiles().size(),
+                        candidate.representativeTokens(),
+                        candidate.aggregationDecisions().stream()
+                                .flatMap(decision -> decision.supportingEvidence().stream())
+                                .distinct()
+                                .toList()
+                ));
+
+        System.out.println("Top ten highest-confidence labels:");
+        result.candidates().stream()
+                .filter(candidate -> candidate.labelConfidence() != EvidenceConfidence.UNLABELED)
+                .sorted(Comparator.comparing((AggregatedFeatureEffectCandidate candidate) -> candidate.labelConfidence().ordinal())
+                        .thenComparing(AggregatedFeatureEffectCandidate::candidateId))
+                .limit(10)
+                .forEach(candidate -> System.out.printf(
+                        "%s label=%s labelConfidence=%s tokens=%s entities=%s%n",
+                        candidate.candidateId(),
+                        candidate.suggestedLabel(),
+                        candidate.labelConfidence(),
+                        candidate.representativeTokens(),
+                        candidate.memberEntities().stream()
+                                .limit(3)
+                                .map(entity -> entity.qualifiedName() == null ? entity.simpleName() : entity.qualifiedName())
+                                .toList()
+                ));
+    }
+
+    private static long countCommonality(SemanticAggregationResult result, CommonalityClassification classification) {
+        return result.candidates().stream()
+                .filter(candidate -> candidate.commonalityClassification() == classification)
+                .count();
+    }
+
+    private static void printCandidateDetails(FeatureEffectCandidateResult result,
+                                              SemanticAggregationResult semanticResult,
+                                              String candidateId) {
+        if (candidateId.startsWith("AFEC-")) {
+            printAggregatedCandidateDetails(semanticResult, candidateId);
+            return;
+        }
+        FeatureEffectCandidate candidate = result.candidates().stream()
+                .filter(item -> item.candidateId().equals(candidateId))
+                .findFirst()
+                .orElse(null);
+        if (candidate == null) {
+            System.out.println("Candidate not found: " + candidateId);
+            return;
+        }
+        System.out.println();
+        System.out.println("Candidate details: " + candidate.candidateId());
+        System.out.println("Group: " + candidate.signatureGroupId());
+        System.out.println("Signature: " + candidate.productSignature());
+        System.out.println("Classification: " + candidate.classificationStatus());
+        System.out.println("Entities:");
+        candidate.memberEntities().forEach(entity -> System.out.printf(
+                "- %s %s %s:%d-%d block=%s%n",
+                entity.entityId(),
+                entity.qualifiedName() == null ? entity.simpleName() : entity.qualifiedName(),
+                entity.sourceFile(),
+                entity.startLine(),
+                entity.endLine(),
+                entity.containingBlockId()
+        ));
+        System.out.println("Blocks:");
+        candidate.memberBlocks().forEach(block -> System.out.printf(
+                "- %s %s:%d-%d%n",
+                block.directiveType(),
+                block.filePath(),
+                block.startLine(),
+                block.endLine()
+        ));
+        System.out.println("Internal dependencies:");
+        candidate.internalEdges().forEach(edge -> System.out.printf(
+                "- %s %s -> %s line=%d%n",
+                edge.relationType(),
+                edge.sourceEntityId(),
+                edge.targetEntityId(),
+                edge.sourceLine()
+        ));
+        System.out.println("Incoming dependencies: " + candidate.incomingEdges().size());
+        System.out.println("Outgoing dependencies: " + candidate.outgoingEdges().size());
+    }
+
+    private static void printAggregatedCandidateDetails(SemanticAggregationResult result, String candidateId) {
+        AggregatedFeatureEffectCandidate candidate = result.candidates().stream()
+                .filter(item -> item.candidateId().equals(candidateId))
+                .findFirst()
+                .orElse(null);
+        if (candidate == null) {
+            System.out.println("Candidate not found: " + candidateId);
+            return;
+        }
+        System.out.println();
+        System.out.println("Aggregated candidate details: " + candidate.candidateId());
+        System.out.println("Label: " + (candidate.suggestedLabel().isBlank() ? "<unlabeled>" : candidate.suggestedLabel()));
+        System.out.println("Label confidence: " + candidate.labelConfidence());
+        System.out.println("Candidate confidence: " + candidate.candidateConfidence());
+        System.out.println("Components: " + candidate.structuralComponentIds());
+        System.out.println("Representative tokens: " + candidate.representativeTokens());
+        System.out.println("Entities:");
+        candidate.memberEntities().forEach(entity -> System.out.printf(
+                "- %s %s %s:%d-%d%n",
+                entity.entityId(),
+                entity.qualifiedName() == null ? entity.simpleName() : entity.qualifiedName(),
+                entity.sourceFile(),
+                entity.startLine(),
+                entity.endLine()
+        ));
+        System.out.println("Merge decisions:");
+        candidate.aggregationDecisions().forEach(decision -> System.out.printf(
+                "- %s + %s score=%.3f evidence=%s reason=%s%n",
+                decision.componentA(),
+                decision.componentB(),
+                decision.combinedScore(),
+                decision.supportingEvidence(),
+                decision.reason()
+        ));
+        System.out.println("Incoming dependencies: " + candidate.incomingEdges().size());
+        System.out.println("Outgoing dependencies: " + candidate.outgoingEdges().size());
+    }
+
+    private record CommandLine(String assetSubdirectory, String candidateDetailsId) {
+        private static CommandLine parse(String[] args) {
+            List<String> positional = new ArrayList<>();
+            String candidateDetailsId = null;
+            for (int index = 0; index < args.length; index++) {
+                if ("--candidate-details".equals(args[index])) {
+                    if (index + 1 >= args.length) {
+                        throw new IllegalArgumentException("--candidate-details requires a candidate id.");
+                    }
+                    candidateDetailsId = args[++index];
+                } else {
+                    positional.add(args[index]);
+                }
+            }
+            if (positional.size() > 1) {
+                throw new IllegalArgumentException("Only one asset subdirectory may be supplied.");
+            }
+            return new CommandLine(positional.isEmpty() ? null : positional.get(0), candidateDetailsId);
+        }
     }
 }

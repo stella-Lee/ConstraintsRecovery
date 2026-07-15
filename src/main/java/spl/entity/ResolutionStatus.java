@@ -1,6 +1,8 @@
 package spl.entity;
 
 public enum ResolutionStatus {
-    RESOLVED,
+    RESOLVED_INTERNAL,
+    RESOLVED_EXTERNAL,
+    AMBIGUOUS,
     UNRESOLVED
 }
