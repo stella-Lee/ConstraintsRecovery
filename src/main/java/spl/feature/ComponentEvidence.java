@@ -19,7 +19,8 @@ public record ComponentEvidence(
         Set<String> dependencyNeighbors,
         Set<String> internalTargets,
         Set<String> incomingSources,
-        Set<String> outgoingTargets
+        Set<String> outgoingTargets,
+        List<TokenEvidence> tokenEvidence
 ) {
     public ComponentEvidence {
         componentId = Objects.requireNonNull(componentId, "componentId");
@@ -35,5 +36,6 @@ public record ComponentEvidence(
         internalTargets = Set.copyOf(Objects.requireNonNull(internalTargets, "internalTargets"));
         incomingSources = Set.copyOf(Objects.requireNonNull(incomingSources, "incomingSources"));
         outgoingTargets = Set.copyOf(Objects.requireNonNull(outgoingTargets, "outgoingTargets"));
+        tokenEvidence = List.copyOf(Objects.requireNonNull(tokenEvidence, "tokenEvidence"));
     }
 }

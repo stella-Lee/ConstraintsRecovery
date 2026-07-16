@@ -127,7 +127,7 @@ class SemanticFeatureEffectAggregatorTest {
         FeatureEffectCandidate first = component("FEC-G1-01", group, List.of(firstEntity), List.of(), List.of(edge));
         FeatureEffectCandidate second = component("FEC-G1-02", group, List.of(secondEntity), List.of(edge), List.of());
         SemanticAggregationConfig strict = new SemanticAggregationConfig(0.35, 0.20, 0.20, 0.15, 0.10,
-                0.95, 2, 0.95, SemanticAggregationConfig.defaults().stopWords(), false, true, true);
+                0.95, 2, 0.95, SemanticAggregationConfig.defaults().stopWords(), false, false, false, true, true);
 
         SemanticAggregationResult result = new SemanticFeatureEffectAggregator(strict)
                 .aggregate(new FeatureEffectCandidateResult(List.of(first, second), List.of(), List.of()), List.of(group));
@@ -158,6 +158,37 @@ class SemanticFeatureEffectAggregatorTest {
         assertTrue(result.candidates().isEmpty());
         assertTrue(result.similarities().isEmpty());
         assertTrue(result.mergeDecisions().isEmpty());
+    }
+
+    @Test
+    void standardAnnotationsAndCommentsDoNotInfluenceTokensOrLabels() {
+        SignatureGroup group = group("G1", "Enterprise");
+        FeatureEffectCandidate component = component("FEC-G1-01", group,
+                List.of(entity("E1", "OverrideDeprecatedDoor", "OverrideDeprecatedDoor", "a/Door.java", "G1", group)),
+                List.of(), List.of());
+
+        SemanticAggregationResult result = aggregate(List.of(component), List.of(group));
+
+        ComponentEvidence evidence = result.evidenceByComponentId().get("FEC-G1-01");
+        assertFalse(evidence.normalizedTokens().contains("override"));
+        assertFalse(evidence.normalizedTokens().contains("deprecated"));
+        assertTrue(evidence.tokenEvidence().stream()
+                .noneMatch(token -> token.provenance() == TokenProvenance.COMMENT));
+    }
+
+    @Test
+    void representativeTokensRecordSourceEntityAndProvenance() {
+        SignatureGroup group = group("G1", "Enterprise");
+        FeatureEffectCandidate component = component("FEC-G1-01", group,
+                List.of(entity("E1", "FloorPermission", "FloorPermission", "a/Floor.java", "G1", group)),
+                List.of(), List.of());
+
+        SemanticAggregationResult result = aggregate(List.of(component), List.of(group));
+
+        assertTrue(result.evidenceByComponentId().get("FEC-G1-01").tokenEvidence().stream()
+                .anyMatch(token -> token.token().equals("floor")
+                        && token.provenance() == TokenProvenance.TYPE_NAME
+                        && token.sourceEntityId().equals("E1")));
     }
 
     private static SemanticAggregationResult aggregate(List<FeatureEffectCandidate> components,

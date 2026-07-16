@@ -3,6 +3,7 @@ package spl.feature;
 import spl.entity.JavaEntity;
 
 import java.io.IOException;
+import java.nio.file.FileSystemException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -42,7 +43,7 @@ public final class SemanticAggregationExporter {
                     .append(csv(String.join("|", candidate.representativeTokens()))).append(',')
                     .append(csv(String.join("|", candidate.unresolvedConcerns()))).append('\n');
         }
-        Files.writeString(outputFile, builder.toString(), StandardCharsets.UTF_8);
+        writeString(outputFile, builder.toString());
     }
 
     private static void exportMembers(SemanticAggregationResult result, Path outputFile) throws IOException {
@@ -79,7 +80,7 @@ public final class SemanticAggregationExporter {
                         .append(csv(candidate.productSignature().toString())).append('\n');
             }
         }
-        Files.writeString(outputFile, builder.toString(), StandardCharsets.UTF_8);
+        writeString(outputFile, builder.toString());
     }
 
     private static void exportSimilarities(SemanticAggregationResult result, Path outputFile) throws IOException {
@@ -100,7 +101,7 @@ public final class SemanticAggregationExporter {
                     .append(similarity.threshold()).append(',')
                     .append(similarity.supportingEvidenceCount()).append('\n');
         }
-        Files.writeString(outputFile, builder.toString(), StandardCharsets.UTF_8);
+        writeString(outputFile, builder.toString());
     }
 
     private static void exportMergeDecisions(SemanticAggregationResult result, Path outputFile) throws IOException {
@@ -115,27 +116,29 @@ public final class SemanticAggregationExporter {
                     .append(csv(String.join("|", decision.supportingEvidence()))).append(',')
                     .append(csv(decision.reason())).append('\n');
         }
-        Files.writeString(outputFile, builder.toString(), StandardCharsets.UTF_8);
+        writeString(outputFile, builder.toString());
     }
 
     private static void exportLabels(SemanticAggregationResult result, Path outputFile) throws IOException {
         StringBuilder builder = new StringBuilder();
-        builder.append("candidate_id,suggested_label,label_confidence,representative_tokens,representative_entities,representative_strings,explanation\n");
+        builder.append("candidate_id,suggested_label,label_confidence,representative_tokens,representative_token_evidence,representative_entities,representative_strings,explanation\n");
         for (AggregatedFeatureEffectCandidate candidate : result.candidates()) {
             String entities = candidate.memberEntities().stream()
                     .limit(5)
                     .map(entity -> entity.qualifiedName() == null ? entity.simpleName() : entity.qualifiedName())
                     .reduce((left, right) -> left + "|" + right)
                     .orElse("");
+            String tokenEvidence = tokenEvidence(candidate, result);
             builder.append(csv(candidate.candidateId())).append(',')
                     .append(csv(candidate.suggestedLabel())).append(',')
                     .append(csv(candidate.labelConfidence().name())).append(',')
                     .append(csv(String.join("|", candidate.representativeTokens()))).append(',')
+                    .append(csv(tokenEvidence)).append(',')
                     .append(csv(entities)).append(',')
                     .append(csv("")).append(',')
                     .append(csv("label derived from representative code identifier tokens")).append('\n');
         }
-        Files.writeString(outputFile, builder.toString(), StandardCharsets.UTF_8);
+        writeString(outputFile, builder.toString());
     }
 
     private static void exportUnassignedComponents(SemanticAggregationResult result, Path outputFile) throws IOException {
@@ -150,7 +153,38 @@ public final class SemanticAggregationExporter {
                     .append(component.memberBlocks().size()).append(',')
                     .append(csv("insufficient semantic aggregation evidence")).append('\n');
         }
-        Files.writeString(outputFile, builder.toString(), StandardCharsets.UTF_8);
+        writeString(outputFile, builder.toString());
+    }
+
+    private static void writeString(Path outputFile, String content) throws IOException {
+        try {
+            Files.writeString(outputFile, content, StandardCharsets.UTF_8);
+        } catch (FileSystemException exception) {
+            Path fallback = outputFile.resolveSibling(outputFile.getFileName() + ".new");
+            Files.writeString(fallback, content, StandardCharsets.UTF_8);
+            System.err.println("Could not overwrite locked output file " + outputFile
+                    + "; wrote " + fallback + " instead.");
+        }
+    }
+
+    private static String tokenEvidence(AggregatedFeatureEffectCandidate candidate, SemanticAggregationResult result) {
+        return candidate.structuralComponentIds().stream()
+                .flatMap(componentId -> result.evidenceByComponentId()
+                        .getOrDefault(componentId, emptyEvidence(componentId))
+                        .tokenEvidence()
+                        .stream())
+                .filter(token -> candidate.representativeTokens().contains(token.token()))
+                .limit(12)
+                .map(token -> token.token() + ":" + token.provenance() + ":" + token.sourceEntityId())
+                .reduce((left, right) -> left + "|" + right)
+                .orElse("");
+    }
+
+    private static ComponentEvidence emptyEvidence(String componentId) {
+        return new ComponentEvidence(componentId, java.util.Map.of(), java.util.List.of(),
+                java.util.Set.of(), java.util.Set.of(), java.util.Set.of(), java.util.Set.of(),
+                java.util.Set.of(), java.util.Set.of(), java.util.Set.of(), java.util.Set.of(),
+                java.util.Set.of(), java.util.Set.of(), java.util.List.of());
     }
 
     private static String csv(String value) {

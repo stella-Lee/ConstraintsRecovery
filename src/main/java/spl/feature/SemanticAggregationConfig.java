@@ -14,6 +14,8 @@ public record SemanticAggregationConfig(
         double clusterCohesionThreshold,
         Set<String> stopWords,
         boolean useStringLiterals,
+        boolean useComments,
+        boolean useCustomAnnotations,
         boolean aggregateIsolatedEntities,
         boolean processFullCommonality
 ) {
@@ -32,6 +34,8 @@ public record SemanticAggregationConfig(
                 2,
                 0.42,
                 defaultStopWords(),
+                false,
+                false,
                 false,
                 true,
                 true

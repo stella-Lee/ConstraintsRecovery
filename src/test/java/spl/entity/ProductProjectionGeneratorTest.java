@@ -103,6 +103,64 @@ class ProductProjectionGeneratorTest {
         assertContainsLine(projection, 6, "extends Base");
     }
 
+    @Test
+    void restoresActiveVariantCodeLinesMarkedWithAtSign() {
+        String source = """
+                class Sample {
+                //#if Enterprise
+                //@Override
+                //@void run() {
+                //@}
+                //#endif
+                }
+                """;
+
+        ProductProjection projection = generator.generate(Path.of("asset"), source, "Enterprise");
+
+        assertContainsLine(projection, 3, "@Override");
+        assertContainsLine(projection, 4, "void run() {");
+        assertContainsLine(projection, 5, "}");
+    }
+
+    @Test
+    void removesInactiveVariantCodeLinesMarkedWithAtSign() {
+        String source = """
+                class Sample {
+                //#if Enterprise
+                //@void enterpriseOnly() {
+                //@}
+                //#endif
+                void shared() {
+                }
+                }
+                """;
+
+        ProductProjection projection = generator.generate(Path.of("asset"), source, "Professional");
+
+        assertBlank(projection, 3);
+        assertBlank(projection, 4);
+        assertContainsLine(projection, 6, "void shared() {");
+    }
+
+    @Test
+    void preservesSourceLineNumbersAfterVariantCodeRestoration() {
+        String source = """
+                class Sample {
+                //#if Enterprise
+                //@void restored() {
+                //@}
+                //#endif
+                void after() {
+                }
+                }
+                """;
+
+        ProductProjection projection = generator.generate(Path.of("asset"), source, "Enterprise");
+
+        assertEquals("void after() {", lines(projection)[5].trim());
+        assertEquals(8, projection.lineCount());
+    }
+
     private static void assertBlank(ProductProjection projection, int lineNumber) {
         assertTrue(lines(projection)[lineNumber - 1].isBlank());
     }

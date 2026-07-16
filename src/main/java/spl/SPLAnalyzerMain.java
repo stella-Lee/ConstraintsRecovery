@@ -21,6 +21,10 @@ import spl.feature.FeatureEffectCandidate;
 import spl.feature.FeatureEffectCandidateBuilder;
 import spl.feature.FeatureEffectCandidateExporter;
 import spl.feature.FeatureEffectCandidateResult;
+import spl.feature.FeatureEvidenceProfile;
+import spl.feature.FeatureEvidenceProfileBuilder;
+import spl.feature.FeatureEvidenceProfileExporter;
+import spl.feature.FeatureEvidenceProfileResult;
 import spl.feature.AggregatedFeatureEffectCandidate;
 import spl.feature.CandidateConfidence;
 import spl.feature.CommonalityClassification;
@@ -84,6 +88,9 @@ public final class SPLAnalyzerMain {
         SemanticAggregationResult semanticResult = new SemanticFeatureEffectAggregator().aggregate(candidateResult, groups);
         new SemanticAggregationExporter().export(semanticResult, Path.of("output"));
         printSemanticAggregationSummary(semanticResult);
+        FeatureEvidenceProfileResult profileResult = new FeatureEvidenceProfileBuilder().build(semanticResult);
+        new FeatureEvidenceProfileExporter().export(profileResult, Path.of("output"));
+        printFeatureEvidenceProfileSummary(profileResult);
         if (commandLine.candidateDetailsId() != null) {
             printCandidateDetails(candidateResult, semanticResult, commandLine.candidateDetailsId());
         }
@@ -442,6 +449,37 @@ public final class SPLAnalyzerMain {
         return result.candidates().stream()
                 .filter(candidate -> candidate.commonalityClassification() == classification)
                 .count();
+    }
+
+    private static void printFeatureEvidenceProfileSummary(FeatureEvidenceProfileResult result) {
+        System.out.println();
+        System.out.println("Feature evidence profiles:");
+        System.out.println("Profiles: " + result.profiles().size());
+        System.out.println("Top 20 implementation clusters:");
+        result.profiles().stream()
+                .sorted(Comparator.<FeatureEvidenceProfile>comparingInt(FeatureEvidenceProfile::entityCount)
+                        .reversed()
+                        .thenComparing(FeatureEvidenceProfile::componentId))
+                .limit(20)
+                .forEach(profile -> System.out.printf(
+                        "%s signature=%s concept=%s entities=%s tokens=%s dependencies=%s%n",
+                        profile.componentId(),
+                        profile.signature(),
+                        profile.implementationConcept(),
+                        profile.representativeEntities().stream()
+                                .limit(3)
+                                .map(item -> item.entity().qualifiedName() == null
+                                        ? item.entity().simpleName()
+                                        : item.entity().qualifiedName())
+                                .toList(),
+                        profile.tokenFrequencies().entrySet().stream()
+                                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed()
+                                        .thenComparing(Map.Entry::getKey))
+                                .limit(5)
+                                .map(entry -> entry.getKey() + ":" + entry.getValue())
+                                .toList(),
+                        profile.internalDependencyTypes()
+                ));
     }
 
     private static void printCandidateDetails(FeatureEffectCandidateResult result,

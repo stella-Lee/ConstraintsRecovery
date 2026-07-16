@@ -13,6 +13,8 @@ import java.util.regex.Pattern;
 public final class ProductProjectionGenerator {
     private static final Pattern DIRECTIVE_PATTERN =
             Pattern.compile("^\\s*//\\s*#(if|elif|else|endif)\\b\\s*(.*)$");
+    private static final Pattern VARIANT_CODE_PATTERN =
+            Pattern.compile("^(\\s*)//@(.*)$");
 
     public ProductProjection generate(Path sourceFile, String source, String product) {
         Objects.requireNonNull(sourceFile, "sourceFile");
@@ -31,11 +33,26 @@ public final class ProductProjectionGenerator {
                 handleDirective(matcher.group(1), matcher.group(2).trim(), product, stack);
                 projectedLines.add("");
             } else {
-                projectedLines.add(isActive(stack) ? line : "");
+                projectedLines.add(projectLine(line, isActive(stack)));
             }
         }
 
         return new ProductProjection(sourceFile, product, String.join(System.lineSeparator(), projectedLines), lineCount);
+    }
+
+    private static String projectLine(String line, boolean active) {
+        if (!active) {
+            return "";
+        }
+        Matcher variantCode = VARIANT_CODE_PATTERN.matcher(line);
+        if (variantCode.matches()) {
+            String restored = variantCode.group(2);
+            if (restored.matches("[A-Z][A-Za-z0-9_]*(\\s*\\(.*)?")) {
+                return variantCode.group(1) + "@" + restored;
+            }
+            return variantCode.group(1) + restored;
+        }
+        return line;
     }
 
     private static void handleDirective(String directive, String expression, String product, ArrayDeque<Frame> stack) {

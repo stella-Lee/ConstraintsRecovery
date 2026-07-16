@@ -35,6 +35,9 @@ public final class SemanticFeatureEffectAggregator {
                     .thenComparing(DependencyEdge::sourceEntityId)
                     .thenComparing(DependencyEdge::targetEntityId);
     private static final Pattern TOKEN_SPLIT = Pattern.compile("[^A-Za-z0-9]+");
+    private static final Set<String> STANDARD_ANNOTATIONS = Set.of(
+            "Override", "Deprecated", "SuppressWarnings", "FunctionalInterface", "SafeVarargs"
+    );
 
     private final SemanticAggregationConfig config;
 
@@ -136,10 +139,17 @@ public final class SemanticFeatureEffectAggregator {
         TreeSet<String> internalTargets = new TreeSet<>();
         TreeSet<String> incomingSources = new TreeSet<>();
         TreeSet<String> outgoingTargets = new TreeSet<>();
+        List<TokenEvidence> tokenEvidence = new ArrayList<>();
 
         for (JavaEntity entity : component.memberEntities()) {
-            addTokens(entity.simpleName(), rawTokens, frequencies);
-            addTokens(entity.qualifiedName(), rawTokens, frequencies);
+            TokenProvenance provenance = switch (entity.entityType()) {
+                case CLASS, INTERFACE, CONSTRUCTOR -> TokenProvenance.TYPE_NAME;
+                case METHOD -> TokenProvenance.METHOD_NAME;
+                case FIELD -> TokenProvenance.FIELD_NAME;
+            };
+            addTokens(entity.simpleName(), rawTokens, frequencies, tokenEvidence, provenance, entity.entityId());
+            addTokens(entity.qualifiedName(), rawTokens, frequencies, tokenEvidence, TokenProvenance.IDENTIFIER,
+                    entity.entityId());
             files.add(entity.sourceFile());
             if (entity.qualifiedName() != null) {
                 packages.add(packageName(entity.qualifiedName()));
@@ -152,7 +162,8 @@ public final class SemanticFeatureEffectAggregator {
         }
         for (DependencyEdge edge : component.internalEdges()) {
             internalTargets.add(edge.targetEntityId());
-            addTokens(edge.relationType().name(), rawTokens, frequencies);
+            addTokens(edge.relationType().name(), rawTokens, frequencies, tokenEvidence, TokenProvenance.IDENTIFIER,
+                    edge.sourceEntityId());
         }
         for (DependencyEdge edge : component.incomingEdges()) {
             incomingSources.add(edge.sourceEntityId());
@@ -172,16 +183,29 @@ public final class SemanticFeatureEffectAggregator {
                 .toList();
         return new ComponentEvidence(component.candidateId(), frequencies, representativeTokens,
                 rawTokens, new TreeSet<>(frequencies.keySet()), packages, classes, files, blockIds,
-                neighbors, internalTargets, incomingSources, outgoingTargets);
+                neighbors, internalTargets, incomingSources, outgoingTargets, tokenEvidence);
     }
 
-    private void addTokens(String text, Set<String> rawTokens, Map<String, Integer> frequencies) {
+    private void addTokens(String text, Set<String> rawTokens, Map<String, Integer> frequencies,
+                           List<TokenEvidence> tokenEvidence, TokenProvenance provenance, String sourceEntityId) {
         if (text == null || text.isBlank()) {
             return;
         }
+        if (provenance == TokenProvenance.COMMENT && !config.useComments()) {
+            return;
+        }
+        if (provenance == TokenProvenance.CUSTOM_ANNOTATION && !config.useCustomAnnotations()) {
+            return;
+        }
         for (String fragment : TOKEN_SPLIT.split(text)) {
+            if (STANDARD_ANNOTATIONS.contains(fragment)) {
+                continue;
+            }
             for (String token : splitIdentifier(fragment)) {
                 if (token.isBlank()) {
+                    continue;
+                }
+                if (STANDARD_ANNOTATIONS.contains(token)) {
                     continue;
                 }
                 rawTokens.add(token);
@@ -189,6 +213,7 @@ public final class SemanticFeatureEffectAggregator {
                 if (!normalized.isBlank() && !normalized.chars().allMatch(Character::isDigit)
                         && !config.stopWords().contains(normalized)) {
                     frequencies.merge(normalized, 1, Integer::sum);
+                    tokenEvidence.add(new TokenEvidence(normalized, provenance, sourceEntityId));
                 }
             }
         }
