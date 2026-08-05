@@ -1,0 +1,25 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/MalerZeit.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P2/src/MalerZeit.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/MalerZeit.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P4/src/MalerZeit.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/MalerZeit.java
+*/
+//#if TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5
+public class MalerZeit extends Thread {
+GameManager gameManager;
+public MalerZeit(GameManager gameManager) {
+this.gameManager = gameManager;
+}
+public void run() {
+while (true) {
+gameManager.aktualisieren();
+try {
+Thread.sleep(10);
+} catch (InterruptedException e) {
+e.printStackTrace();
+}
+}
+}
+}
+//#endif

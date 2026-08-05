@@ -38,12 +38,13 @@ public final class DependencyGraphExporter {
 
     private static void exportEdges(DependencyGraph graph, Path outputFile) throws IOException {
         StringBuilder builder = new StringBuilder();
-        builder.append("edge_id,source_entity_id,target_entity_id,relation_type,source_file,source_line,target_file,source_group_id,target_group_id,source_signature,target_signature,cross_file,observed_products,resolution_status\n");
+        builder.append("edge_id,source_entity_id,target_entity_id,relation_type,dependency_category,source_file,source_line,target_file,source_group_id,target_group_id,source_signature,target_signature,cross_file,observed_products,resolution_status\n");
         for (DependencyEdge edge : graph.edges()) {
             builder.append(csv(edge.edgeId())).append(',')
                     .append(csv(edge.sourceEntityId())).append(',')
                     .append(csv(edge.targetEntityId())).append(',')
                     .append(csv(edge.relationType().name())).append(',')
+                    .append(csv(DependencyKindClassifier.category(edge.relationType()).name())).append(',')
                     .append(csv(edge.sourceFile().toString())).append(',')
                     .append(edge.sourceLine()).append(',')
                     .append(csv(edge.targetFile().toString())).append(',')
@@ -79,7 +80,7 @@ public final class DependencyGraphExporter {
 
     private static void exportGroupDependencies(DependencyGraph graph, Path outputFile) throws IOException {
         StringBuilder builder = new StringBuilder();
-        builder.append("source_group_id,target_group_id,relation_type,edge_count,cross_file_edge_count\n");
+        builder.append("source_group_id,target_group_id,relation_type,dependency_category,edge_count,cross_file_edge_count\n");
         Map<GroupDependencyKey, GroupDependencyCount> counts = new TreeMap<>();
         for (DependencyEdge edge : graph.edges()) {
             GroupDependencyKey key = new GroupDependencyKey(edge.sourceGroupId(), edge.targetGroupId(), edge.relationType());
@@ -91,6 +92,7 @@ public final class DependencyGraphExporter {
             builder.append(csv(key.sourceGroupId())).append(',')
                     .append(csv(key.targetGroupId())).append(',')
                     .append(csv(key.relationType().name())).append(',')
+                    .append(csv(DependencyKindClassifier.category(key.relationType()).name())).append(',')
                     .append(count.edgeCount).append(',')
                     .append(count.crossFileEdgeCount).append('\n');
         }

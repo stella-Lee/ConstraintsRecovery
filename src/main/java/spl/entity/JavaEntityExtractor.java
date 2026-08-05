@@ -251,6 +251,8 @@ public final class JavaEntityExtractor {
                 startLine(node),
                 JavaRelationType.FIELD_REFERENCE,
                 fieldName,
+                "",
+                -1,
                 target == null ? null : target.stableName(),
                 target == null ? null : target.key(),
                 sourceEntityKeyFor(unit, sourceFile, node),
@@ -341,12 +343,43 @@ public final class JavaEntityExtractor {
                 startLine(node),
                 relationType,
                 targetText,
+                targetDeclaringType(node, relationType),
+                argumentCount(node),
                 null,
                 null,
                 sourceEntityKeyFor(unit, sourceFile, node),
                 resolvedByParser,
                 context
         ));
+    }
+
+    private static String targetDeclaringType(Node node, JavaRelationType relationType) {
+        try {
+            if (relationType == JavaRelationType.METHOD_CALL && node instanceof MethodCallExpr call) {
+                return call.resolve().declaringType().getQualifiedName();
+            }
+            if (relationType == JavaRelationType.CONSTRUCTOR_CALL && node instanceof ObjectCreationExpr creation) {
+                return creation.resolve().declaringType().getQualifiedName();
+            }
+        } catch (RuntimeException ignored) {
+        }
+        if (relationType == JavaRelationType.CONSTRUCTOR_CALL && node instanceof ObjectCreationExpr creation) {
+            return creation.getType().getNameAsString();
+        }
+        return "";
+    }
+
+    private static int argumentCount(Node node) {
+        if (node instanceof MethodCallExpr call) {
+            return call.getArguments().size();
+        }
+        if (node instanceof ObjectCreationExpr creation) {
+            return creation.getArguments().size();
+        }
+        if (node instanceof ExplicitConstructorInvocationStmt call) {
+            return call.getArguments().size();
+        }
+        return -1;
     }
 
     private static EntityExtractionResult buildResult(List<EntityDraft> entityDrafts,
@@ -670,6 +703,8 @@ public final class JavaEntityExtractor {
             int sourceLine,
             JavaRelationType relationType,
             String targetText,
+            String targetDeclaringType,
+            int argumentCount,
             String targetEntityName,
             EntityKey targetEntityKey,
             EntityKey sourceEntityKey,
@@ -702,7 +737,7 @@ public final class JavaEntityExtractor {
             TreeSet<String> products = new TreeSet<>(observedProducts);
             products.addAll(other.observedProducts);
             return new RelationDraft(node, sourceFile, new ArrayList<>(products), sourceLine,
-                    relationType, targetText, targetEntityName,
+                    relationType, targetText, targetDeclaringType, argumentCount, targetEntityName,
                     targetEntityKey == null ? other.targetEntityKey : targetEntityKey,
                     sourceEntityKey == null ? other.sourceEntityKey : sourceEntityKey,
                     resolvedByParser || other.resolvedByParser, context);
@@ -762,7 +797,8 @@ public final class JavaEntityExtractor {
     }
 
     private record RelationKey(Path sourceFile, int sourceLine, JavaRelationType relationType, String targetText,
-                               String targetEntityName, EntityKey sourceEntityKey, String blockId) {
+                               String targetEntityName, EntityKey targetEntityKey, EntityKey sourceEntityKey,
+                               String blockId) {
         private static RelationKey from(RelationDraft draft) {
             return new RelationKey(
                     draft.sourceFile(),
@@ -770,6 +806,7 @@ public final class JavaEntityExtractor {
                     draft.relationType(),
                     draft.targetText(),
                     draft.targetEntityName(),
+                    draft.targetEntityKey(),
                     draft.sourceEntityKey(),
                     draft.context().blockId()
             );
@@ -783,7 +820,9 @@ public final class JavaEntityExtractor {
         private final Map<EntityKey, String> entityIdsByKey;
         private final Map<String, List<String>> typesByName = new HashMap<>();
         private final Map<String, List<String>> methodsByName = new HashMap<>();
+        private final Map<String, List<String>> methodsByOwnerNameArity = new HashMap<>();
         private final Map<String, List<String>> constructorsByType = new HashMap<>();
+        private final Map<String, List<String>> constructorsByTypeArity = new HashMap<>();
         private final Map<String, List<String>> fieldsByName = new HashMap<>();
         private final Map<String, EntityDraft> draftsById = new HashMap<>();
 
@@ -803,9 +842,21 @@ public final class JavaEntityExtractor {
                     index.add(index.methodsByName, draft.simpleName(), id);
                     index.add(index.methodsByName, draft.key().declaringType() + "#" + draft.simpleName()
                             + "(" + draft.key().parameterSignature() + ")", id);
+                    index.add(index.methodsByOwnerNameArity,
+                            methodKey(draft.key().declaringType(), draft.simpleName(),
+                                    parameterCount(draft.key().parameterSignature())), id);
+                    index.add(index.methodsByOwnerNameArity,
+                            methodKey(simpleName(draft.key().declaringType()), draft.simpleName(),
+                                    parameterCount(draft.key().parameterSignature())), id);
                 } else if (draft.entityType() == JavaEntityType.CONSTRUCTOR) {
                     index.add(index.constructorsByType, simpleName(draft.key().declaringType()), id);
                     index.add(index.constructorsByType, draft.key().declaringType(), id);
+                    index.add(index.constructorsByTypeArity,
+                            constructorKey(simpleName(draft.key().declaringType()),
+                                    parameterCount(draft.key().parameterSignature())), id);
+                    index.add(index.constructorsByTypeArity,
+                            constructorKey(draft.key().declaringType(),
+                                    parameterCount(draft.key().parameterSignature())), id);
                 } else if (draft.entityType() == JavaEntityType.FIELD) {
                     index.add(index.fieldsByName, draft.simpleName(), id);
                     index.add(index.fieldsByName, draft.key().declaringType() + "#" + draft.simpleName(), id);
@@ -847,6 +898,19 @@ public final class JavaEntityExtractor {
         }
 
         private TargetResolution resolveMethod(RelationDraft draft) {
+            if (draft.argumentCount() >= 0 && draft.targetDeclaringType() != null && !draft.targetDeclaringType().isBlank()) {
+                List<String> ownerMatches = lookup(methodsByOwnerNameArity,
+                        methodKey(draft.targetDeclaringType(), draft.targetText(), draft.argumentCount()));
+                if (ownerMatches.size() == 1) {
+                    return new TargetResolution(ownerMatches.get(0), ResolutionStatus.RESOLVED_INTERNAL);
+                }
+                if (ownerMatches.size() > 1) {
+                    return new TargetResolution(null, ResolutionStatus.AMBIGUOUS);
+                }
+                if (isKnownExternalTarget(draft.targetDeclaringType())) {
+                    return new TargetResolution(null, ResolutionStatus.RESOLVED_EXTERNAL);
+                }
+            }
             List<String> matches = lookup(methodsByName, draft.targetText());
             if (matches.size() == 1) {
                 return new TargetResolution(matches.get(0), ResolutionStatus.RESOLVED_INTERNAL);
@@ -866,6 +930,16 @@ public final class JavaEntityExtractor {
                 }
             }
             List<String> matches = lookup(constructorsByType, typeName);
+            if (draft.argumentCount() >= 0) {
+                List<String> arityMatches = lookup(constructorsByTypeArity,
+                        constructorKey(typeName, draft.argumentCount()));
+                if (arityMatches.size() == 1) {
+                    return new TargetResolution(arityMatches.get(0), ResolutionStatus.RESOLVED_INTERNAL);
+                }
+                if (arityMatches.size() > 1) {
+                    return new TargetResolution(null, ResolutionStatus.AMBIGUOUS);
+                }
+            }
             if (matches.size() == 1) {
                 return new TargetResolution(matches.get(0), ResolutionStatus.RESOLVED_INTERNAL);
             }
@@ -903,6 +977,21 @@ public final class JavaEntityExtractor {
                 return exact.stream().distinct().sorted().toList();
             }
             return map.getOrDefault(simpleName(canonical), List.of()).stream().distinct().sorted().toList();
+        }
+
+        private static String methodKey(String ownerType, String methodName, int argumentCount) {
+            return canonicalTargetName(ownerType) + "#" + methodName + "#" + argumentCount;
+        }
+
+        private static String constructorKey(String typeName, int argumentCount) {
+            return canonicalTargetName(typeName) + "#" + argumentCount;
+        }
+
+        private static int parameterCount(String parameterSignature) {
+            if (parameterSignature == null || parameterSignature.isBlank()) {
+                return 0;
+            }
+            return parameterSignature.split(",", -1).length;
         }
 
         private TargetResolution externalOrUnresolved(RelationDraft draft) {

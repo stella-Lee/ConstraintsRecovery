@@ -1,0 +1,9 @@
+package spl.requiresanalysis;
+
+public enum RequiresCandidateCategory {
+    HIGH_CONFIDENCE_REQUIRES,
+    MEDIUM_CONFIDENCE_REQUIRES,
+    LOW_CONFIDENCE_REQUIRES,
+    COMMON_TO_VARIABLE_ANOMALY,
+    REJECTED_TRIVIAL_OR_INVALID
+}

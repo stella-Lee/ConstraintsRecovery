@@ -4,6 +4,7 @@ import spl.ConditionalBlock;
 import spl.ProductSignature;
 import spl.dependency.DependencyEdge;
 import spl.dependency.DependencyGraph;
+import spl.dependency.DependencyKindClassifier;
 import spl.entity.JavaEntity;
 import spl.entity.JavaEntityType;
 import spl.entity.JavaRelationType;
@@ -55,6 +56,7 @@ public final class FeatureEffectCandidateBuilder {
         Map<String, List<JavaEntity>> entitiesByGroup = entities.stream()
                 .collect(Collectors.groupingBy(JavaEntity::signatureGroupId));
         Map<String, List<DependencyEdge>> sameGroupEdges = graph.edges().stream()
+                .filter(edge -> DependencyKindClassifier.isImplementationDependency(edge.relationType()))
                 .filter(edge -> edge.sourceGroupId().equals(edge.targetGroupId()))
                 .collect(Collectors.groupingBy(DependencyEdge::sourceGroupId));
 
@@ -110,7 +112,10 @@ public final class FeatureEffectCandidateBuilder {
             }
         }
 
-        for (DependencyEdge edge : graph.edges().stream().sorted(EDGE_ORDER).toList()) {
+        for (DependencyEdge edge : graph.edges().stream()
+                .filter(edge -> DependencyKindClassifier.isImplementationDependency(edge.relationType()))
+                .sorted(EDGE_ORDER)
+                .toList()) {
             CandidateAccumulator source = accumulatorByEntityId.get(edge.sourceEntityId());
             CandidateAccumulator target = accumulatorByEntityId.get(edge.targetEntityId());
             if (source == null || target == null || source == target) {

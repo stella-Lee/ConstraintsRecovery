@@ -1,0 +1,41 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P2/src/Tank$$Bombe.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P4/src/Tank$$Bombe.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/Tank$$Bombe.java
+*/
+//#if TankWar_P2 | TankWar_P4 | TankWar_P5
+import java.util.Random;
+import java.util.Vector;
+//#if TankWar_P5
+abstract class Tank$$Bombe extends Tank$$Tools {
+//#elif TankWar_P2
+import java.io.IOException;
+abstract class Tank$$Bombe extends Tank$$einfrieren {
+//#elif TankWar_P4
+import java.io.IOException;
+abstract class Tank$$Bombe extends Tank$$Tools {
+//#endif
+public Tank$$Bombe(TankManager tankManager, int x_Koordinate, int y_Koordinate, int tankType) {
+super(tankManager, x_Koordinate, y_Koordinate, tankType);
+}
+protected void toolBehandeln(int toolType) {
+super.toolBehandeln(toolType);
+switch(toolType) {
+case 374:
+Vector temp = new Vector();
+for (int i = 0; i < tankManager.tankMenge.size(); i++) {
+if (tankManager.tankMenge.elementAt(i) != tankManager.tank1 && tankManager.tankMenge.elementAt(i) != tankManager.tank2 && tankManager.tankMenge.elementAt(i) != tankManager.base) {
+temp.addElement(tankManager.tankMenge.elementAt(i));
+}
+}
+for (int i = 0; i < temp.size(); i++) {
+if (i > 3) {
+break;
+}
+((Tank) temp.elementAt(i)).explodieren();
+}
+break;
+}
+}
+}
+//#endif

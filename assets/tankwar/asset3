@@ -1,0 +1,45 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/TankManager$$Tools.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P2/src/TankManager$$Tools.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/TankManager$$Tools.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P4/src/TankManager$$Tools.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/TankManager$$Tools.java
+*/
+//#if TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5
+//#if TankWar_P3
+import java.io.IOException;
+//#endif
+import java.util.Random;
+import java.util.Vector;
+//#if TankWar_P2 | TankWar_P4
+import java.io.IOException;
+//#endif
+abstract class TankManager$$Tools extends TankManager$$TankWar {
+protected Vector toolMenge = new Vector();
+public TankManager$$Tools() {
+super();
+}
+public void komponenteMalen() {
+super.komponenteMalen();
+if (mapReady) {
+gruppeMalen(toolMenge);
+}
+}
+public void toolsLaden() {
+}
+public void toolInit(int type) {
+if (Math.abs(random.nextInt() % 300) == 0) {
+int x = Math.abs(random.nextInt() % 59);
+int y = Math.abs(random.nextInt() % 59);
+Tool tool = new Tool(((TankManager) this), x, y, type);
+if (!tool.stossenGegen(metalwall) && !tool.stossenGegen(waterwall) && toolMenge.size() < 3) {
+toolMenge.addElement(tool);
+}
+}
+}
+public void addEnemyTank() {
+super.addEnemyTank();
+toolsLaden();
+}
+}
+//#endif

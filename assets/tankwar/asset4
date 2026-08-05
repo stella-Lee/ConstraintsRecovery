@@ -1,0 +1,27 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/KeyMonitor.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P2/src/KeyMonitor.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/KeyMonitor.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P4/src/KeyMonitor.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/KeyMonitor.java
+*/
+//#if TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+public class KeyMonitor implements KeyListener {
+private GameManager gameManager;
+public KeyMonitor(GameManager gameManager) {
+this.gameManager = gameManager;
+}
+public void keyPressed(KeyEvent e) {
+int key = e.getKeyCode();
+gameManager.keyPressBehandeln(key);
+}
+public void keyReleased(KeyEvent e) {
+int key = e.getKeyCode();
+gameManager.keyReleaseBehandeln(key);
+}
+public void keyTyped(KeyEvent arg0) {
+}
+}
+//#endif

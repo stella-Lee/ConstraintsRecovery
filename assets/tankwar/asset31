@@ -1,0 +1,26 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/TankManager$$Mars.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P2/src/TankManager$$Mars.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/TankManager$$Mars.java
+*/
+//#if TankWar_P1 | TankWar_P2 | TankWar_P3
+//#if TankWar_P3
+import java.io.IOException;
+//#endif
+import java.util.Random;
+import java.util.Vector;
+//#if TankWar_P1 | TankWar_P3
+abstract class TankManager$$Mars extends TankManager$$Feuerkraft {
+//#elif TankWar_P2
+import java.io.IOException;
+abstract class TankManager$$Mars extends TankManager$$Bombe {
+//#endif
+public TankManager$$Mars() {
+super();
+}
+public void toolsLaden() {
+toolInit(375);
+super.toolsLaden();
+}
+}
+//#endif

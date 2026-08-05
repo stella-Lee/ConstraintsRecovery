@@ -1,0 +1,11 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/MIDlet.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P2/src/MIDlet.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/MIDlet.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P4/src/MIDlet.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/MIDlet.java
+*/
+//#if TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5
+public class MIDlet {
+}
+//#endif

@@ -1,0 +1,23 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P2/src/TankManager$$Beschleunigung.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/TankManager$$Beschleunigung.java
+*/
+//#if TankWar_P2 | TankWar_P3
+//#if TankWar_P3
+import java.io.IOException;
+//#endif
+import java.util.Random;
+import java.util.Vector;
+//#if TankWar_P2
+import java.io.IOException;
+//#endif
+abstract class TankManager$$Beschleunigung extends TankManager$$Tools {
+public TankManager$$Beschleunigung() {
+super();
+}
+public void toolsLaden() {
+toolInit(370);
+super.toolsLaden();
+}
+}
+//#endif

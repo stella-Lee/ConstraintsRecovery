@@ -1,0 +1,49 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/Tank$$Mars.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P2/src/Tank$$Mars.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/Tank$$Mars.java
+*/
+//#if TankWar_P1 | TankWar_P2 | TankWar_P3
+import java.util.Random;
+import java.util.Vector;
+//#if TankWar_P2
+import java.io.IOException;
+abstract class Tank$$Mars extends Tank$$Bombe {
+//#elif TankWar_P3
+import java.io.IOException;
+abstract class Tank$$Mars extends Tank$$Feuerkraft {
+//#elif TankWar_P1
+abstract class Tank$$Mars extends Tank$$Feuerkraft {
+//#endif
+protected boolean mars = false;
+protected long marsTimer;
+public Tank$$Mars(TankManager tankManager, int x_Koordinate, int y_Koordinate, int tankType) {
+super(tankManager, x_Koordinate, y_Koordinate, tankType);
+}
+protected void toolKontroller() {
+super.toolKontroller();
+if (mars && System.currentTimeMillis() - marsTimer > 10000) {
+mars = false;
+}
+if (mars) {
+tankManager.maler.setColor(255, 255, 255);
+tankManager.maler.drawRoundRect(x_Koordinate - 3, y_Koordinate - 3, objWidth + 6, objHeight + 6, tankManager.koernigkeit, tankManager.koernigkeit);
+}
+}
+protected void toolBehandeln(int toolType) {
+super.toolBehandeln(toolType);
+switch(toolType) {
+case 375:
+marsTimer = System.currentTimeMillis();
+((Tank) this).mars = true;
+break;
+}
+}
+public void beschaedigen(int besch, int beschId) {
+if (mars) {
+((Tank) this).energie = ((Tank) this).energie + besch;
+}
+super.beschaedigen(besch, beschId);
+}
+}
+//#endif

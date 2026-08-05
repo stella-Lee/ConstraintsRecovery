@@ -1,0 +1,58 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/TankManager.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/TankManager$$Record.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P4/src/TankManager$$Record.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/TankManager.java
+*/
+//#if TankWar_P1 | TankWar_P3 | TankWar_P4 | TankWar_P5
+//#if TankWar_P3
+import java.io.IOException;
+//#endif
+import java.util.Random;
+import java.util.Vector;
+//#if TankWar_P4
+import java.io.IOException;
+abstract class TankManager$$Record extends TankManager$$Energie {
+//#elif TankWar_P3
+abstract class TankManager$$Record extends TankManager$$explodieren {
+//#elif TankWar_P5
+public class TankManager extends TankManager$$explodieren {
+//#elif TankWar_P1
+public class TankManager extends TankManager$$Mars {
+//#endif
+protected Record record;
+protected int tank1Score = 0;
+protected int tank2Score = 0;
+//#if TankWar_P3 | TankWar_P4
+public TankManager$$Record() {
+//#elif TankWar_P1 | TankWar_P5
+public TankManager() {
+//#endif
+super();
+}
+public void init() {
+super.init();
+record = new Record();
+}
+public void malenkontrolle() {
+super.malenkontrolle();
+switch(status) {
+case GameManager.NOTE:
+maler.note(record.readNote());
+break;
+case GameManager.NAME_VERGEBEN:
+maler.nameVergeben();
+break;
+}
+}
+public void addScore(int id, int type) {
+if (id == tank1.id) {
+tank1Score += type * 5;
+}
+}
+public void writeScore() {
+record.writeNote(maler.name, tank1Score);
+tank1Score = 0;
+}
+}
+//#endif

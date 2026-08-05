@@ -15,6 +15,15 @@ import spl.dependency.DependencyEdge;
 import spl.dependency.DependencyGraph;
 import spl.dependency.DependencyGraphExporter;
 import spl.dependency.UnresolvedDependencyRelation;
+import spl.requiresanalysis.DependencyEvidence;
+import spl.requiresanalysis.EntityRole;
+import spl.requiresanalysis.AuditReportBuilder;
+import spl.requiresanalysis.AuditReportExporter;
+import spl.requiresanalysis.AuditReportResult;
+import spl.requiresanalysis.RequiresEvidenceBuilder;
+import spl.requiresanalysis.RequiresEvidenceExporter;
+import spl.requiresanalysis.RequiresEvidenceResult;
+import spl.requiresanalysis.RequiresRelevance;
 import spl.feature.CandidateClassificationStatus;
 import spl.feature.CandidateDependencyScope;
 import spl.feature.FeatureEffectCandidate;
@@ -43,6 +52,8 @@ import java.util.Scanner;
 import java.util.stream.Collectors;
 
 public final class SPLAnalyzerMain {
+    private static final Path OUTPUT_DIRECTORY = Path.of("D:\\SPL-Tool\\git\\ConstraintsRecovery\\output");
+
     public static void main(String[] args) throws Exception {
         CommandLine commandLine;
         try {
@@ -66,6 +77,7 @@ public final class SPLAnalyzerMain {
             return;
         }
         System.out.println("Analyzing asset project: " + assetProject.displayPath());
+        System.out.println("Output directory: " + OUTPUT_DIRECTORY);
 
         ProductSignatureExtractor extractor = new ProductSignatureExtractor();
         List<ConditionalBlock> blocks = extractor.extract(assetProject.normalizedPath());
@@ -74,26 +86,27 @@ public final class SPLAnalyzerMain {
 
         List<Path> assetFiles = new AssetFileScanner().scan(assetProject.normalizedPath());
         EntityExtractionResult entityResult = new JavaEntityExtractor().extract(groups, assetFiles);
-        new EntityResultExporter().export(entityResult, Path.of("output"));
+        new EntityResultExporter().export(entityResult, OUTPUT_DIRECTORY);
         printEntitySummary(groups, entityResult);
 
         DependencyGraph graph = new CrossFileDependencyGraphBuilder().build(entityResult);
-        new DependencyGraphExporter().export(graph, Path.of("output"));
+        new DependencyGraphExporter().export(graph, OUTPUT_DIRECTORY);
         printDependencySummary(graph);
 
-        FeatureEffectCandidateResult candidateResult = new FeatureEffectCandidateBuilder()
-                .build(groups, entityResult.entities(), graph);
-        new FeatureEffectCandidateExporter().export(candidateResult, Path.of("output"));
-        printFeatureEffectSummary(groups, candidateResult);
-        SemanticAggregationResult semanticResult = new SemanticFeatureEffectAggregator().aggregate(candidateResult, groups);
-        new SemanticAggregationExporter().export(semanticResult, Path.of("output"));
-        printSemanticAggregationSummary(semanticResult);
-        FeatureEvidenceProfileResult profileResult = new FeatureEvidenceProfileBuilder().build(semanticResult);
-        new FeatureEvidenceProfileExporter().export(profileResult, Path.of("output"));
-        printFeatureEvidenceProfileSummary(profileResult);
+        RequiresEvidenceResult requiresEvidence = new RequiresEvidenceBuilder().build(groups, entityResult, graph);
+        new RequiresEvidenceExporter().export(requiresEvidence, OUTPUT_DIRECTORY);
+        printRequiresEvidenceSummary(requiresEvidence);
+        AuditReportResult auditResult = new AuditReportBuilder().build(requiresEvidence);
+        new AuditReportExporter().export(auditResult, OUTPUT_DIRECTORY);
+        printAuditSummary(auditResult);
         if (commandLine.candidateDetailsId() != null) {
-            printCandidateDetails(candidateResult, semanticResult, commandLine.candidateDetailsId());
+            System.out.println();
+            System.out.println("--candidate-details is a legacy feature-candidate option and is not run in the requires-analysis default pipeline.");
         }
+    }
+
+    private static Path outputFile(String fileName) {
+        return OUTPUT_DIRECTORY.resolve(fileName);
     }
 
     private static String promptForAssetSubdirectory() {
@@ -230,7 +243,12 @@ public final class SPLAnalyzerMain {
         System.out.println("Dependency graph:");
         System.out.println("Graph nodes          : " + graph.nodes().size());
         System.out.println("Resolved graph edges : " + graph.edges().size());
-        System.out.println("Unresolved relations : " + graph.unresolvedRelations().size());
+        System.out.println("Debug unresolved rels: " + graph.unresolvedRelations().size());
+        System.out.println("Implementation deps  : " + graph.statistics().implementationDependencyCount());
+        System.out.println("Structural deps      : " + graph.statistics().structuralDependencyCount());
+        System.out.println("Excluded deps removed: " + graph.statistics().excludedDependencyCount());
+        System.out.println("External deps removed: " + graph.statistics().externalDependencyRemovedCount());
+        System.out.println("Unresolved removed   : " + graph.statistics().unresolvedDependencyRemovedCount());
         System.out.println("Cross-file edges     : " + graph.edges().stream().filter(DependencyEdge::crossFile).count());
         System.out.println("Same-file edges      : " + graph.edges().stream().filter(edge -> !edge.crossFile()).count());
         System.out.println("External targets     : " + graph.unresolvedRelations().stream()
@@ -294,6 +312,72 @@ public final class SPLAnalyzerMain {
                 .filter(edge -> edge.relationType() == JavaRelationType.CONSTRUCTOR_CALL)
                 .filter(edge -> nodeTypes.get(edge.targetEntityId()) != JavaEntityType.CONSTRUCTOR)
                 .count();
+    }
+
+    private static void printRequiresEvidenceSummary(RequiresEvidenceResult result) {
+        System.out.println();
+        System.out.println("Requires-analysis structural evidence:");
+        System.out.println("Conditional blocks    : " + result.blocks().size());
+        System.out.println("Block entities        : " + result.entities().size());
+        System.out.println("Block dependencies    : " + result.dependencies().size());
+        System.out.println("Entity classifications: " + result.classifications().size());
+        System.out.println("Output files:");
+        System.out.println("- " + outputFile("blocks.csv"));
+        System.out.println("- " + outputFile("block-entities.csv"));
+        System.out.println("- " + outputFile("block-dependencies.csv"));
+        System.out.println("- " + outputFile("entity-classification.csv"));
+        System.out.println("- " + outputFile("block-summary.csv"));
+
+        System.out.println("Entity roles:");
+        Map<EntityRole, Long> roleCounts = result.classifications().stream()
+                .collect(Collectors.groupingBy(classification -> classification.entityRole(), Collectors.counting()));
+        for (EntityRole role : EntityRole.values()) {
+            System.out.println("- " + role + ": " + roleCounts.getOrDefault(role, 0L));
+        }
+
+        System.out.println("Requires relevance evidence levels:");
+        Map<RequiresRelevance, Long> relevanceCounts = result.dependencies().stream()
+                .collect(Collectors.groupingBy(DependencyEvidence::requiresRelevance, Collectors.counting()));
+        for (RequiresRelevance relevance : RequiresRelevance.values()) {
+            System.out.println("- " + relevance + ": " + relevanceCounts.getOrDefault(relevance, 0L));
+        }
+
+        System.out.println("Top blocks by outgoing dependency evidence:");
+        result.blockSummaries().stream()
+                .sorted(Comparator.<spl.requiresanalysis.BlockSummary>comparingInt(
+                        summary -> -summary.outgoingDependencyCount()
+                ).thenComparing(summary -> summary.file())
+                        .thenComparingInt(summary -> summary.startLine()))
+                .limit(10)
+                .forEach(summary -> System.out.printf(
+                        "- %s group=%s entities=%d outgoing=%d high=%d medium=%d low=%d roles=%s%n",
+                        summary.blockId(),
+                        summary.groupId(),
+                        summary.entityCount(),
+                        summary.outgoingDependencyCount(),
+                        summary.highRelevanceDependencyCount(),
+                        summary.mediumRelevanceDependencyCount(),
+                        summary.lowRelevanceDependencyCount(),
+                        summary.dominantEntityRoles()
+                ));
+    }
+
+    private static void printAuditSummary(AuditReportResult result) {
+        System.out.println();
+        System.out.println("Audited requires-analysis evidence:");
+        System.out.println("Audited entities   : " + result.entityClassifications().size());
+        System.out.println("Audited block pairs: " + result.blockPairs().size());
+        System.out.println("Output files:");
+        System.out.println("- " + outputFile("audited-entity-classification.csv"));
+        System.out.println("- " + outputFile("requires_candidates.csv"));
+        System.out.println("- " + outputFile("requires_candidate_evidence.csv"));
+        System.out.println("- " + outputFile("requires_candidate_details.csv"));
+        System.out.println("Requires relevance hypotheses:");
+        Map<RequiresRelevance, Long> relevanceCounts = result.blockPairs().stream()
+                .collect(Collectors.groupingBy(pair -> pair.requiresRelevance(), Collectors.counting()));
+        for (RequiresRelevance relevance : RequiresRelevance.values()) {
+            System.out.println("- " + relevance + ": " + relevanceCounts.getOrDefault(relevance, 0L));
+        }
     }
 
     private static void printFeatureEffectSummary(List<SignatureGroup> groups,

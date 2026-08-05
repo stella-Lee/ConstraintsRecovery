@@ -1,0 +1,18 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/Missile$$explodieren.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/Missile$$explodieren.java
+*/
+//#if TankWar_P3 | TankWar_P5
+//#if TankWar_P3
+import java.io.IOException;
+//#endif
+abstract class Missile$$explodieren extends Missile$$TankWar {
+public Missile$$explodieren(TankManager tankManager, int x_Koordinate, int y_Koordinate, int width, int height, int missileRichtung, int missileType, boolean feindlich, int tankId) {
+super(tankManager, x_Koordinate, y_Koordinate, width, height, missileRichtung, missileType, feindlich, tankId);
+}
+protected void explodieren() {
+super.explodieren();
+tankManager.expEffekt.addElement(new ExplodierenEffekt(tankManager, x_Koordinate, y_Koordinate));
+}
+}
+//#endif

@@ -1,0 +1,24 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/Tool$$einfrieren.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P2/src/Tool$$einfrieren.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/Tool$$einfrieren.java
+*/
+//#if TankWar_P1 | TankWar_P2 | TankWar_P3
+//#if TankWar_P1
+abstract class Tool$$einfrieren extends Tool$$Tools {
+//#elif TankWar_P2 | TankWar_P3
+abstract class Tool$$einfrieren extends Tool$$Beschleunigung {
+//#endif
+public Tool$$einfrieren(TankManager tankManager, int x_Koordinate, int y_Koordinate, int toolType) {
+super(tankManager, x_Koordinate, y_Koordinate, toolType);
+}
+protected void init(TankManager tankManager, int x_Koordinate, int y_Koordinate, int toolType) {
+super.init(tankManager, x_Koordinate, y_Koordinate, toolType);
+switch(toolType) {
+case 371:
+super.init(tankManager, x_Koordinate * tankManager.koernigkeit2, y_Koordinate * tankManager.koernigkeit2, 100, 149, 237, tankManager.koernigkeit, tankManager.koernigkeit, toolType);
+break;
+}
+}
+}
+//#endif

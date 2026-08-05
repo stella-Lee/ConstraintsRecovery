@@ -1,0 +1,40 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P2/src/Maler$$Germany_Leopard.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/Maler$$Germany_Leopard.java
+*/
+//#if TankWar_P2 | TankWar_P3
+import java.awt.BorderLayout;
+import java.awt.Button;
+import java.awt.Canvas;
+import java.awt.Color;
+import java.awt.Frame;
+import java.awt.Graphics;
+import java.awt.Image;
+import java.awt.Font;
+import java.awt.Toolkit;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.awt.image.ImageObserver;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Vector;
+import java.util.Random;
+import javax.swing.JFrame;
+//#if TankWar_P3
+import java.awt.TextField;
+abstract class Maler$$Germany_Leopard extends Maler$$Re_fuer_PC {
+//#elif TankWar_P2
+abstract class Maler$$Germany_Leopard extends Maler$$USA_M1Abrams {
+//#endif
+public Maler$$Germany_Leopard(GameManager gameManager) {
+super(gameManager);
+}
+protected void tankErstellen() {
+super.tankErstellen();
+int x, y;
+x = GAME_WIDTH * 2 / 3 / 3;
+y = (int) (2.5 * x);
+menu.add(Sprach.TANKB, loadImage("choice22.png", x, y), loadImage("choice02.png", x, y), 2);
+}
+}
+//#endif

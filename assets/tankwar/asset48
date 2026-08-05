@@ -1,0 +1,59 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P2/src/Tank$$Sound_fuer_pc.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/Tank$$Sound_fuer_pc.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P4/src/Tank$$Sound_fuer_pc.java
+*/
+//#if TankWar_P2 | TankWar_P3 | TankWar_P4
+import java.util.Random;
+import java.util.Vector;
+import java.io.IOException;
+//#if TankWar_P2
+abstract class Tank$$Sound_fuer_pc extends Tank$$Image {
+//#elif TankWar_P3 | TankWar_P4
+abstract class Tank$$Sound_fuer_pc extends Tank$$Record {
+//#endif
+public Tank$$Sound_fuer_pc(TankManager tankManager, int x_Koordinate, int y_Koordinate, int tankType) {
+super(tankManager, x_Koordinate, y_Koordinate, tankType);
+}
+protected void keyPressBehandeln(int key) {
+super.keyPressBehandeln(key);
+int index = Math.abs(random.nextInt() % 4);
+if (fahrRichtung != tankRichtung && key > 36 && key < 41) {
+try {
+switch(index) {
+case 0:
+SoundPlayer.getInstance().playMoveSound();
+break;
+case 1:
+SoundPlayer.getInstance().playRogerSound();
+break;
+case 2:
+SoundPlayer.getInstance().playYessirSound();
+break;
+case 3:
+SoundPlayer.getInstance().playYeahSound();
+break;
+}
+} catch (IOException e) {
+e.printStackTrace();
+}
+}
+}
+protected void explodieren() {
+super.explodieren();
+try {
+SoundPlayer.getInstance().playExplodeSound();
+} catch (IOException e) {
+e.printStackTrace();
+}
+}
+protected void toolBehandeln(int toolType) {
+super.toolBehandeln(toolType);
+try {
+SoundPlayer.getInstance().playEatSound();
+} catch (IOException e) {
+e.printStackTrace();
+}
+}
+}
+//#endif

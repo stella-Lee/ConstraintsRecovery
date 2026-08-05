@@ -47,10 +47,22 @@ public final class CrossFileDependencyGraphBuilder {
 
         Map<EdgeKey, EdgeAccumulator> edgeAccumulators = new LinkedHashMap<>();
         List<UnresolvedDependencyRelation> unresolvedRelations = new ArrayList<>();
+        int excludedDependencyCount = 0;
+        int externalDependencyRemovedCount = 0;
+        int unresolvedDependencyRemovedCount = 0;
         for (JavaRelation relation : extractionResult.relations()) {
+            if (!DependencyKindClassifier.isBlockGraphDependency(relation.relationType())) {
+                excludedDependencyCount++;
+                continue;
+            }
             DependencyResolutionResult resolution = resolve(relation, entitiesById);
             if (!resolution.resolved()) {
                 unresolvedRelations.add(resolution.unresolvedRelation());
+                if (resolution.unresolvedRelation().resolutionStatus() == ResolutionStatus.RESOLVED_EXTERNAL) {
+                    externalDependencyRemovedCount++;
+                } else {
+                    unresolvedDependencyRemovedCount++;
+                }
                 continue;
             }
             DependencyEdge edge = resolution.edge();
@@ -67,10 +79,23 @@ public final class CrossFileDependencyGraphBuilder {
             edgeNumber++;
         }
 
+        DependencyGraphStatistics statistics = new DependencyGraphStatistics(
+                (int) edges.stream()
+                        .filter(edge -> DependencyKindClassifier.isImplementationDependency(edge.relationType()))
+                        .count(),
+                (int) edges.stream()
+                        .filter(edge -> DependencyKindClassifier.isStructuralDependency(edge.relationType()))
+                        .count(),
+                excludedDependencyCount,
+                externalDependencyRemovedCount,
+                unresolvedDependencyRemovedCount
+        );
+
         return new DependencyGraph(
                 nodes.stream().sorted(NODE_ORDER).toList(),
                 edges.stream().sorted(EDGE_ORDER).toList(),
-                unresolvedRelations.stream().sorted(UNRESOLVED_ORDER).toList()
+                unresolvedRelations.stream().sorted(UNRESOLVED_ORDER).toList(),
+                statistics
         );
     }
 
@@ -115,8 +140,8 @@ public final class CrossFileDependencyGraphBuilder {
                 relation.sourceLine(),
                 target.sourceFile(),
                 relation.containingBlockId(),
-                source.signatureGroupId(),
-                source.effectiveProductSignature(),
+                relation.signatureGroupId(),
+                relation.effectiveProductSignature(),
                 target.signatureGroupId(),
                 target.effectiveProductSignature(),
                 crossFile,

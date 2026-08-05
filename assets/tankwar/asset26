@@ -1,0 +1,22 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/Tank$$Record.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/Tank$$Record.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P4/src/Tank$$Record.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/Tank$$Record.java
+*/
+//#if TankWar_P1 | TankWar_P3 | TankWar_P4 | TankWar_P5
+import java.util.Random;
+import java.util.Vector;
+//#if TankWar_P3 | TankWar_P4
+import java.io.IOException;
+//#endif
+abstract class Tank$$Record extends Tank$$Image {
+public Tank$$Record(TankManager tankManager, int x_Koordinate, int y_Koordinate, int tankType) {
+super(tankManager, x_Koordinate, y_Koordinate, tankType);
+}
+protected void explodieren() {
+tankManager.addScore(beschId, objectType);
+super.explodieren();
+}
+}
+//#endif

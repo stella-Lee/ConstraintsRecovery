@@ -1,0 +1,21 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/Missile.java
+*/
+//#if TankWar_P3
+import java.io.IOException;
+public class Missile extends Missile$$Image {
+public Missile(TankManager tankManager, int x_Koordinate, int y_Koordinate, int width, int height, int missileRichtung, int missileType, boolean feindlich, int tankId) {
+super(tankManager, x_Koordinate, y_Koordinate, width, height, missileRichtung, missileType, feindlich, tankId);
+}
+protected void init(TankManager tankManager, int x_Koordinate, int y_Koordinate, int width, int height, int missileRichtung, int missileType, boolean feindlich, int tankId) {
+super.init(tankManager, x_Koordinate, y_Koordinate, width, height, missileRichtung, missileType, feindlich, tankId);
+if (!feindlich) {
+try {
+SoundPlayer.getInstance().playFireSound();
+} catch (IOException e) {
+e.printStackTrace();
+}
+}
+}
+}
+//#endif

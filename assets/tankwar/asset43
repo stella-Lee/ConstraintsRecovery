@@ -1,0 +1,26 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/Tool$$Feuerkraft.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/Tool$$Feuerkraft.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/Tool$$Feuerkraft.java
+*/
+//#if TankWar_P1 | TankWar_P3 | TankWar_P5
+//#if TankWar_P5
+abstract class Tool$$Feuerkraft extends Tool$$Bombe {
+//#elif TankWar_P3
+abstract class Tool$$Feuerkraft extends Tool$$einfrieren {
+//#elif TankWar_P1
+abstract class Tool$$Feuerkraft extends Tool$$Energie {
+//#endif
+public Tool$$Feuerkraft(TankManager tankManager, int x_Koordinate, int y_Koordinate, int toolType) {
+super(tankManager, x_Koordinate, y_Koordinate, toolType);
+}
+protected void init(TankManager tankManager, int x_Koordinate, int y_Koordinate, int toolType) {
+super.init(tankManager, x_Koordinate, y_Koordinate, toolType);
+switch(toolType) {
+case 372:
+super.init(tankManager, x_Koordinate * tankManager.koernigkeit2, y_Koordinate * tankManager.koernigkeit2, 0, 255, 0, tankManager.koernigkeit, tankManager.koernigkeit, toolType);
+break;
+}
+}
+}
+//#endif

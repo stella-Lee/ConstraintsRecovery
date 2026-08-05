@@ -1,0 +1,197 @@
+block_id,group_id,signature,file,branch_type,start_line,end_line,nesting_depth
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset1:IF:8-128,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset1,IF,8,128,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset1:IF:9-10,G14,TankWar_P2|TankWar_P3|TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset1,IF,9,10,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset10:IF:8-42,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset10,IF,8,42,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset10:IF:11-12,G14,TankWar_P2|TankWar_P3|TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset10,IF,11,12,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset11:IF:8-132,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset11,IF,8,132,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset12:IF:8-10,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset12,IF,8,10,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset13:IF:8-358,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset13,IF,8,358,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset13:IF:26-28,G10,TankWar_P1|TankWar_P4|TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset13,IF,26,28,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset13:ELIF:29-31,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset13,ELIF,29,31,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset13:ELIF:32-33,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset13,ELIF,32,33,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset14:IF:8-384,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset14,IF,8,384,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset14:IF:11-12,G14,TankWar_P2|TankWar_P3|TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset14,IF,11,12,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset15:IF:8-281,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset15,IF,8,281,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset16:IF:8-49,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset16,IF,8,49,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset17:IF:8-36,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset17,IF,8,36,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset18:IF:8-35,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset18,IF,8,35,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset18:IF:9-10,G7,TankWar_P1|TankWar_P3|TankWar_P4|TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset18,IF,9,10,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset18:ELIF:11-12,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset18,ELIF,11,12,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset19:IF:8-51,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset19,IF,8,51,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset2:IF:8-332,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset2,IF,8,332,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset2:IF:26-27,G7,TankWar_P1|TankWar_P3|TankWar_P4|TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset2,IF,26,27,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset20:IF:8-41,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset20,IF,8,41,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset20:IF:9-10,G3,TankWar_P1|TankWar_P2|TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset20,IF,9,10,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset20:ELIF:11-12,G20,TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset20,ELIF,11,12,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset20:ELIF:13-14,G22,TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset20,ELIF,13,14,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset21:IF:8-24,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset21,IF,8,24,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset22:IF:8-80,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset22,IF,8,80,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset23:IF:7-99,G7,TankWar_P1 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset23,IF,7,99,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset24:IF:7-24,G7,TankWar_P1 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset24,IF,7,24,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset25:IF:7-10,G7,TankWar_P1 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset25,IF,7,10,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset26:IF:7-21,G7,TankWar_P1 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset26,IF,7,21,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset26:IF:10-11,G18,TankWar_P3|TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset26,IF,10,11,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset27:IF:7-116,G7,TankWar_P1 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset27,IF,7,116,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset28:IF:7-57,G7,TankWar_P1 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset28,IF,7,57,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset28:IF:8-9,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset28,IF,8,9,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset28:IF:13-15,G20,TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset28,IF,13,15,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset28:ELIF:16-17,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset28,ELIF,16,17,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset28:ELIF:18-19,G22,TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset28,ELIF,18,19,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset28:ELIF:20-21,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset28,ELIF,20,21,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset28:IF:26-27,G18,TankWar_P3|TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset28,IF,26,27,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset28:ELIF:28-29,G11,TankWar_P1|TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset28,ELIF,28,29,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset29:IF:6-26,G8,TankWar_P1 | TankWar_P3 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset29,IF,6,26,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset29:IF:7-8,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset29,IF,7,8,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset29:IF:12-13,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset29,IF,12,13,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset29:ELIF:14-15,G22,TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset29,ELIF,14,15,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset29:ELIF:16-17,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset29,ELIF,16,17,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset3:IF:8-44,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset3,IF,8,44,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset3:IF:9-10,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset3,IF,9,10,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset3:IF:14-15,G15,TankWar_P2|TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset3,IF,14,15,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset30:IF:6-40,G16,TankWar_P2 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset30,IF,6,40,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset30:IF:9-10,G22,TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset30,IF,9,10,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset30:ELIF:11-13,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset30,ELIF,11,13,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset30:ELIF:14-16,G20,TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset30,ELIF,14,16,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset31:IF:6-25,G3,TankWar_P1 | TankWar_P2 | TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset31,IF,6,25,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset31:IF:7-8,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset31,IF,7,8,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset31:IF:12-13,G6,TankWar_P1|TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset31,IF,12,13,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset31:ELIF:14-16,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset31,ELIF,14,16,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset32:IF:6-40,G3,TankWar_P1 | TankWar_P2 | TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset32,IF,6,40,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset32:IF:24-26,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset32,IF,24,26,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset32:ELIF:27-29,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset32,ELIF,27,29,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset32:ELIF:30-31,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset32,ELIF,30,31,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset33:IF:6-23,G3,TankWar_P1 | TankWar_P2 | TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset33,IF,6,23,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset33:IF:7-8,G6,TankWar_P1|TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset33,IF,7,8,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset33:ELIF:9-10,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset33,ELIF,9,10,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset34:IF:6-39,G8,TankWar_P1 | TankWar_P3 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset34,IF,6,39,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset34:IF:25-26,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset34,IF,25,26,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset34:ELIF:27-28,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset34,ELIF,27,28,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset34:ELIF:29-30,G22,TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset34,ELIF,29,30,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset35:IF:6-37,G16,TankWar_P2 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset35,IF,6,37,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset35:IF:24-26,G21,TankWar_P4|TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset35,IF,24,26,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset35:ELIF:27-28,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset35,ELIF,27,28,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset36:IF:6-27,G3,TankWar_P1 | TankWar_P2 | TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset36,IF,6,27,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset36:IF:7-8,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset36,IF,7,8,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset36:IF:12-13,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset36,IF,12,13,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset36:ELIF:14-15,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset36,ELIF,14,15,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset36:ELIF:16-18,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset36,ELIF,16,18,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset37:IF:6-37,G3,TankWar_P1 | TankWar_P2 | TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset37,IF,6,37,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset37:IF:24-26,G6,TankWar_P1|TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset37,IF,24,26,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset37:ELIF:27-28,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset37,ELIF,27,28,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset38:IF:6-25,G16,TankWar_P2 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset38,IF,6,25,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset38:IF:9-11,G20,TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset38,IF,9,11,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset38:ELIF:12-14,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset38,ELIF,12,14,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset38:ELIF:15-16,G22,TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset38,ELIF,15,16,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset39:IF:6-46,G8,TankWar_P1 | TankWar_P3 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset39,IF,6,46,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset39:IF:9-11,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset39,IF,9,11,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset39:ELIF:12-13,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset39,ELIF,12,13,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset39:ELIF:14-15,G22,TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset39,ELIF,14,15,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset4:IF:8-26,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset4,IF,8,26,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset40:IF:6-39,G10,TankWar_P1 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset40,IF,6,39,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset40:IF:25-26,G20,TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset40,IF,25,26,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset40:ELIF:27-28,G22,TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset40,ELIF,27,28,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset40:ELIF:29-30,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset40,ELIF,29,30,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset41:IF:6-48,G3,TankWar_P1 | TankWar_P2 | TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset41,IF,6,48,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset41:IF:9-11,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset41,IF,9,11,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset41:ELIF:12-14,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset41,ELIF,12,14,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset41:ELIF:15-16,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset41,ELIF,15,16,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset42:IF:6-23,G16,TankWar_P2 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset42,IF,6,23,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset42:IF:7-8,G21,TankWar_P4|TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset42,IF,7,8,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset42:ELIF:9-10,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset42,ELIF,9,10,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset43:IF:6-25,G8,TankWar_P1 | TankWar_P3 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset43,IF,6,25,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset43:IF:7-8,G22,TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset43,IF,7,8,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset43:ELIF:9-10,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset43,ELIF,9,10,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset43:ELIF:11-12,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset43,ELIF,11,12,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset44:IF:6-23,G3,TankWar_P1 | TankWar_P2 | TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset44,IF,6,23,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset44:IF:7-8,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset44,IF,7,8,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset44:ELIF:9-10,G13,TankWar_P2|TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset44,ELIF,9,10,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset45:IF:6-38,G14,TankWar_P2 | TankWar_P3 | TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset45,IF,6,38,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset45:IF:8-9,G15,TankWar_P2|TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset45,IF,8,9,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset45:ELIF:10-11,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset45,ELIF,10,11,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset46:IF:6-50,G3,TankWar_P1 | TankWar_P2 | TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset46,IF,6,50,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset46:IF:9-10,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset46,IF,9,10,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset46:ELIF:11-13,G13,TankWar_P2|TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset46,ELIF,11,13,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset47:IF:6-53,G14,TankWar_P2 | TankWar_P3 | TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset47,IF,6,53,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset48:IF:6-58,G14,TankWar_P2 | TankWar_P3 | TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset48,IF,6,58,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset48:IF:10-11,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset48,IF,10,11,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset48:ELIF:12-13,G18,TankWar_P3|TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset48,ELIF,12,13,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset49:IF:5-132,G19,TankWar_P3 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset49,IF,5,132,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset5:IF:8-22,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset5,IF,8,22,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset50:IF:5-21,G9,TankWar_P1 | TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset50,IF,5,21,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset50:IF:8-10,G20,TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset50,IF,8,10,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset50:ELIF:11-12,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset50,ELIF,11,12,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset51:IF:5-39,G2,TankWar_P1 | TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset51,IF,5,39,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset51:IF:23-24,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset51,IF,23,24,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset51:ELIF:25-27,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset51,ELIF,25,27,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset52:IF:5-39,G13,TankWar_P2 | TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset52,IF,5,39,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset53:IF:5-25,G9,TankWar_P1 | TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset53,IF,5,25,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset53:IF:8-10,G20,TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset53,IF,8,10,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset53:ELIF:11-12,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset53,ELIF,11,12,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset54:IF:5-26,G19,TankWar_P3 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset54,IF,5,26,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset54:IF:6-7,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset54,IF,6,7,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset54:IF:11-12,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset54,IF,11,12,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset54:ELIF:13-14,G22,TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset54,ELIF,13,14,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset55:IF:5-35,G19,TankWar_P3 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset55,IF,5,35,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset56:IF:5-34,G13,TankWar_P2 | TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset56,IF,5,34,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset56:IF:23-24,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset56,IF,23,24,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset57:IF:5-22,G9,TankWar_P1 | TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset57,IF,5,22,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset57:IF:6-7,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset57,IF,6,7,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset57:ELIF:8-9,G20,TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset57,ELIF,8,9,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset58:IF:5-21,G19,TankWar_P3 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset58,IF,5,21,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset58:IF:8-10,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset58,IF,8,10,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset58:ELIF:11-12,G22,TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset58,ELIF,11,12,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset59:IF:5-22,G13,TankWar_P2 | TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset59,IF,5,22,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset59:IF:6-7,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset59,IF,6,7,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset59:IF:11-12,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset59,IF,11,12,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset6:IF:8-52,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset6,IF,8,52,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset6:IF:26-28,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset6,IF,26,28,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset6:ELIF:29-31,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset6,ELIF,29,31,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset6:ELIF:32-33,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset6,ELIF,32,33,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset6:ELIF:34-36,G21,TankWar_P4|TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset6,ELIF,34,36,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset6:IF:46-47,G20,TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset6,IF,46,47,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset6:ELIF:48-49,G5,TankWar_P1|TankWar_P2|TankWar_P3|TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset6,ELIF,48,49,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset60:IF:5-18,G13,TankWar_P2 | TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset60,IF,5,18,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset61:IF:5-39,G13,TankWar_P2 | TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset61,IF,5,39,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset61:IF:23-25,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset61,IF,23,25,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset61:ELIF:26-27,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset61,ELIF,26,27,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset62:IF:5-36,G9,TankWar_P1 | TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset62,IF,5,36,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset62:IF:24-25,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset62,IF,24,25,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset62:ELIF:26-27,G20,TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset62,ELIF,26,27,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset63:IF:5-7,G19,TankWar_P3 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset63,IF,5,7,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset64:IF:5-17,G19,TankWar_P3 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset64,IF,5,17,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset64:IF:6-7,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset64,IF,6,7,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset65:IF:4-59,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset65,IF,4,59,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset66:IF:4-31,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset66,IF,4,31,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset67:IF:4-23,G20,TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset67,IF,4,23,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset68:IF:4-20,G20,TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset68,IF,4,20,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset69:IF:4-59,G20,TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset69,IF,4,59,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset7:IF:8-62,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset7,IF,8,62,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset70:IF:4-29,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset70,IF,4,29,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset71:IF:4-26,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset71,IF,4,26,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset72:IF:4-25,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset72,IF,4,25,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset73:IF:4-23,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset73,IF,4,23,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset74:IF:4-30,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset74,IF,4,30,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset75:IF:4-20,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset75,IF,4,20,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset76:IF:4-25,G22,TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset76,IF,4,25,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset77:IF:4-23,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset77,IF,4,23,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset78:IF:4-20,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset78,IF,4,20,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset79:IF:4-23,G22,TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset79,IF,4,23,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset8:IF:8-96,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset8,IF,8,96,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset8:IF:11-12,G22,TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset8,IF,11,12,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset8:ELIF:13-15,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset8,ELIF,13,15,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset8:ELIF:16-17,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset8,ELIF,16,17,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset8:ELIF:18-20,G20,TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset8,ELIF,18,20,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset8:ELIF:21-23,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset8,ELIF,21,23,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset80:IF:4-31,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset80,IF,4,31,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset81:IF:4-29,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset81,IF,4,29,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset82:IF:4-31,G22,TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset82,IF,4,31,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset83:IF:4-23,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset83,IF,4,23,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset84:IF:4-29,G20,TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset84,IF,4,29,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset9:IF:8-248,G4,TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset9,IF,8,248,0
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset9:IF:9-10,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset9,IF,9,10,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset9:IF:14-15,G15,TankWar_P2|TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset9,IF,14,15,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset9:IF:49-51,G1,TankWar_P1,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset9,IF,49,51,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset9:ELIF:52-55,G17,TankWar_P3,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset9,ELIF,52,55,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset9:ELIF:56-58,G12,TankWar_P2,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset9,ELIF,56,58,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset9:ELIF:59-62,G20,TankWar_P4,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset9,ELIF,59,62,1
+C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset9:ELIF:63-66,G22,TankWar_P5,C:\Users\JBNU\git\ConstraintsRecovery\assets\tankwar\asset9,ELIF,63,66,1

@@ -62,7 +62,22 @@ class CrossFileDependencyGraphBuilderTest {
     }
 
     @Test
-    void supportsConstructorTypeFieldExtendsAndImplementsEdges() {
+    void usesRelationOccurrenceGroupAsDependencySourceGroup() {
+        EntityExtractionResult result = result(
+                List.of(entity("E1", "a/A.java", JavaEntityType.METHOD, "caller", "A.caller", "G1"),
+                        entity("E2", "a/A.java", JavaEntityType.FIELD, "field", "A.field", "G3")),
+                List.of(relation("R1", "E1", "E2", "field", JavaRelationType.FIELD_REFERENCE, "a/A.java", 12, "G2"))
+        );
+
+        DependencyGraph graph = builder.build(result);
+
+        assertEquals("G2", graph.edges().get(0).sourceGroupId());
+        assertEquals("Enterprise", graph.edges().get(0).sourceSignature().toString());
+        assertEquals("G3", graph.edges().get(0).targetGroupId());
+    }
+
+    @Test
+    void supportsConstructorFieldExtendsAndImplementsEdgesButExcludesTypeReferences() {
         JavaEntity source = entity("E1", "a/A.java", JavaEntityType.CLASS, "A", "A", "G1");
         List<JavaEntity> entities = List.of(
                 source,
@@ -82,8 +97,13 @@ class CrossFileDependencyGraphBuilderTest {
 
         DependencyGraph graph = builder.build(result(entities, relations));
 
-        assertEquals(5, graph.edges().size());
-        assertEquals(5, graph.edges().stream().map(DependencyEdge::relationType).distinct().count());
+        assertEquals(4, graph.edges().size());
+        assertEquals(4, graph.edges().stream().map(DependencyEdge::relationType).distinct().count());
+        assertFalse(graph.edges().stream()
+                .anyMatch(edge -> edge.relationType() == JavaRelationType.TYPE_REFERENCE));
+        assertEquals(2, graph.statistics().implementationDependencyCount());
+        assertEquals(2, graph.statistics().structuralDependencyCount());
+        assertEquals(1, graph.statistics().excludedDependencyCount());
     }
 
     @Test
@@ -95,12 +115,21 @@ class CrossFileDependencyGraphBuilderTest {
                 Path.of("a/A.java"), 11, "B1", "G1", new ProductSignature("Enterprise"),
                 List.of("Enterprise"), ResolutionStatus.RESOLVED_EXTERNAL
         );
+        JavaRelation externalMethod = new JavaRelation(
+                "R3", "E1", null, "org.eclipse.swt.widgets.Button.setText", JavaRelationType.METHOD_CALL,
+                Path.of("a/A.java"), 12, "B1", "G1", new ProductSignature("Enterprise"),
+                List.of("Enterprise"), ResolutionStatus.RESOLVED_EXTERNAL
+        );
 
-        DependencyGraph graph = builder.build(result(List.of(source), List.of(unresolved, external)));
+        DependencyGraph graph = builder.build(result(List.of(source), List.of(unresolved, external, externalMethod)));
 
         assertTrue(graph.edges().isEmpty());
         assertEquals(2, graph.unresolvedRelations().size());
-        assertTrue(graph.unresolvedRelations().stream().anyMatch(relation -> relation.failureReason().equals("external target")));
+        assertTrue(graph.unresolvedRelations().stream()
+                .noneMatch(relation -> relation.relationType() == JavaRelationType.TYPE_REFERENCE));
+        assertEquals(1, graph.statistics().excludedDependencyCount());
+        assertEquals(1, graph.statistics().externalDependencyRemovedCount());
+        assertEquals(1, graph.statistics().unresolvedDependencyRemovedCount());
     }
 
     @Test

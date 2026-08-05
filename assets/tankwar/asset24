@@ -1,0 +1,25 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/Note.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/Note.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P4/src/Note.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/Note.java
+*/
+//#if TankWar_P1 | TankWar_P3 | TankWar_P4 | TankWar_P5
+import java.io.Serializable;
+public class Note implements Serializable {
+public String name;
+public int note;
+public Note(String name, int note) {
+if (name.length() >= 7) {
+this.name = name.substring(0, 6);
+} else {
+int leng = name.length();
+for (int i = 0; i < 6 - leng; i++) {
+name += " ";
+}
+this.name = name;
+}
+this.note = note;
+}
+}
+//#endif

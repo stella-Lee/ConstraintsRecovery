@@ -1,0 +1,28 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/TankManager$$einfrieren.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P2/src/TankManager$$einfrieren.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/TankManager$$einfrieren.java
+*/
+//#if TankWar_P1 | TankWar_P2 | TankWar_P3
+//#if TankWar_P3
+import java.io.IOException;
+//#endif
+import java.util.Random;
+import java.util.Vector;
+//#if TankWar_P1
+abstract class TankManager$$einfrieren extends TankManager$$Tools {
+//#elif TankWar_P3
+abstract class TankManager$$einfrieren extends TankManager$$Beschleunigung {
+//#elif TankWar_P2
+import java.io.IOException;
+abstract class TankManager$$einfrieren extends TankManager$$Beschleunigung {
+//#endif
+public TankManager$$einfrieren() {
+super();
+}
+public void toolsLaden() {
+toolInit(371);
+super.toolsLaden();
+}
+}
+//#endif

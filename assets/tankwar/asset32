@@ -1,0 +1,41 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/Maler$$einfrieren.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P2/src/Maler$$einfrieren.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/Maler$$einfrieren.java
+*/
+//#if TankWar_P1 | TankWar_P2 | TankWar_P3
+import java.awt.BorderLayout;
+import java.awt.Button;
+import java.awt.Canvas;
+import java.awt.Color;
+import java.awt.Frame;
+import java.awt.Graphics;
+import java.awt.Image;
+import java.awt.Font;
+import java.awt.Toolkit;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.awt.image.ImageObserver;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Vector;
+import java.util.Random;
+import javax.swing.JFrame;
+//#if TankWar_P1
+import java.awt.TextField;
+abstract class Maler$$einfrieren extends Maler$$PC {
+//#elif TankWar_P3
+import java.awt.TextField;
+abstract class Maler$$einfrieren extends Maler$$Beschleunigung {
+//#elif TankWar_P2
+abstract class Maler$$einfrieren extends Maler$$Beschleunigung {
+//#endif
+public Maler$$einfrieren(GameManager gameManager) {
+super(gameManager);
+}
+public void helpItemErstellen() {
+super.helpItemErstellen();
+menu.add(Sprach.HelpItem, loadImage("transparent.png", 0, 0), loadImage("einfrieren.png", 0, 0), 0);
+}
+}
+//#endif

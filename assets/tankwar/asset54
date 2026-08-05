@@ -1,0 +1,27 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/TankManager$$explodieren.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/TankManager$$explodieren.java
+*/
+//#if TankWar_P3 | TankWar_P5
+//#if TankWar_P3
+import java.io.IOException;
+//#endif
+import java.util.Random;
+import java.util.Vector;
+//#if TankWar_P3
+abstract class TankManager$$explodieren extends TankManager$$Mars {
+//#elif TankWar_P5
+abstract class TankManager$$explodieren extends TankManager$$Feuerkraft {
+//#endif
+public Vector expEffekt = new Vector(2, 1);
+public TankManager$$explodieren() {
+super();
+}
+public void komponenteMalen() {
+super.komponenteMalen();
+if (mapReady) {
+gruppeMalen(expEffekt);
+}
+}
+}
+//#endif

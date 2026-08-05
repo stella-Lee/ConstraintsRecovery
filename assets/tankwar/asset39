@@ -1,0 +1,47 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/Tank$$Feuerkraft.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/Tank$$Feuerkraft.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/Tank$$Feuerkraft.java
+*/
+//#if TankWar_P1 | TankWar_P3 | TankWar_P5
+import java.util.Random;
+import java.util.Vector;
+//#if TankWar_P3
+import java.io.IOException;
+abstract class Tank$$Feuerkraft extends Tank$$einfrieren {
+//#elif TankWar_P1
+abstract class Tank$$Feuerkraft extends Tank$$Energie {
+//#elif TankWar_P5
+abstract class Tank$$Feuerkraft extends Tank$$Bombe {
+//#endif
+protected long feuerkraftTimer;
+protected boolean feuerkraft = false;
+public Tank$$Feuerkraft(TankManager tankManager, int x_Koordinate, int y_Koordinate, int tankType) {
+super(tankManager, x_Koordinate, y_Koordinate, tankType);
+}
+protected void toolKontroller() {
+super.toolKontroller();
+if (tankManager.status == GameManager.PAUSE || tankManager.status == GameManager.EXIT) {
+if (feuerkraft) {
+feuerkraftTimer += elapsedTime;
+}
+}
+if (feuerkraft && System.currentTimeMillis() - feuerkraftTimer > 15000) {
+feuernHaufigkeit = feuernHaufigkeit + 500l;
+feuerkraft = false;
+}
+}
+protected void toolBehandeln(int toolType) {
+super.toolBehandeln(toolType);
+switch(toolType) {
+case 372:
+if (!feuerkraft) {
+((Tank) this).feuerkraftTimer = System.currentTimeMillis();
+((Tank) this).feuerkraft = true;
+((Tank) this).feuernHaufigkeit = ((Tank) this).feuernHaufigkeit - 500l;
+}
+break;
+}
+}
+}
+//#endif

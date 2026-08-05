@@ -1,0 +1,97 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/Tank$$Image.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P2/src/Tank$$Image.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/Tank$$Image.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P4/src/Tank$$Image.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/Tank$$Image.java
+*/
+//#if TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5
+import java.util.Random;
+import java.util.Vector;
+//#if TankWar_P5
+abstract class Tank$$Image extends Tank$$explodieren {
+//#elif TankWar_P3
+import java.io.IOException;
+abstract class Tank$$Image extends Tank$$explodieren {
+//#elif TankWar_P1
+abstract class Tank$$Image extends Tank$$Mars {
+//#elif TankWar_P4
+import java.io.IOException;
+abstract class Tank$$Image extends Tank$$Energie {
+//#elif TankWar_P2
+import java.io.IOException;
+abstract class Tank$$Image extends Tank$$Mars {
+//#endif
+public Tank$$Image(TankManager tankManager, int x_Koordinate, int y_Koordinate, int tankType) {
+super(tankManager, x_Koordinate, y_Koordinate, tankType);
+}
+protected void tankMalen() {
+switch(objectType) {
+case 00:
+tankManager.maler.drawImage("base", x_Koordinate, y_Koordinate);
+break;
+case 01:
+tankManager.maler.drawImage("gh", x_Koordinate - tankManager.koernigkeit2 * 2, y_Koordinate - tankManager.koernigkeit2 * 2);
+drawTanks("01");
+break;
+case 02:
+tankManager.maler.drawImage("gh", x_Koordinate - tankManager.koernigkeit2 * 2, y_Koordinate - tankManager.koernigkeit2 * 2);
+drawTanks("02");
+break;
+case 03:
+tankManager.maler.drawImage("gh", x_Koordinate - tankManager.koernigkeit2 * 2, y_Koordinate - tankManager.koernigkeit2 * 2);
+drawTanks("03");
+break;
+case 11:
+drawTanks("11");
+break;
+case 12:
+drawTanks("12");
+break;
+case 13:
+drawTanks("13");
+break;
+case 21:
+if (((Tank) this).energie >= 30)
+drawTanks("21");
+else if (((Tank) this).energie >= 20 && ((Tank) this).energie < 30)
+drawTanks("24");
+else if (((Tank) this).energie >= 10 && ((Tank) this).energie < 20)
+drawTanks("25");
+break;
+case 22:
+if (((Tank) this).energie >= 30)
+drawTanks("22");
+else if (((Tank) this).energie >= 20 && ((Tank) this).energie < 30)
+drawTanks("26");
+else if (((Tank) this).energie >= 10 && ((Tank) this).energie < 20)
+drawTanks("27");
+break;
+case 23:
+if (((Tank) this).energie >= 30)
+drawTanks("23");
+else if (((Tank) this).energie >= 20 && ((Tank) this).energie < 30)
+drawTanks("28");
+else if (((Tank) this).energie >= 10 && ((Tank) this).energie < 20)
+drawTanks("29");
+break;
+}
+}
+private void drawTanks(String tankTypes) {
+switch(((Tank) this).fahrRichtung) {
+case 1:
+tankManager.maler.drawImage(tankTypes + "U", x_Koordinate, y_Koordinate);
+break;
+case 3:
+tankManager.maler.drawImage(tankTypes + "R", x_Koordinate, y_Koordinate);
+break;
+case 5:
+tankManager.maler.drawImage(tankTypes + "D", x_Koordinate, y_Koordinate);
+break;
+case 7:
+tankManager.maler.drawImage(tankTypes + "L", x_Koordinate, y_Koordinate);
+break;
+}
+}
+}
+//#endif

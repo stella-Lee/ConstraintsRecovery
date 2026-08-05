@@ -1,0 +1,38 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P2/src/Maler$$Bombe.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P4/src/Maler$$Bombe.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/Maler$$Bombe.java
+*/
+//#if TankWar_P2 | TankWar_P4 | TankWar_P5
+import java.awt.BorderLayout;
+import java.awt.Button;
+import java.awt.Canvas;
+import java.awt.Color;
+import java.awt.Frame;
+import java.awt.Graphics;
+import java.awt.Image;
+import java.awt.Font;
+import java.awt.Toolkit;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.awt.image.ImageObserver;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Vector;
+import java.util.Random;
+import javax.swing.JFrame;
+//#if TankWar_P4 | TankWar_P5
+import java.awt.TextField;
+abstract class Maler$$Bombe extends Maler$$PC {
+//#elif TankWar_P2
+abstract class Maler$$Bombe extends Maler$$einfrieren {
+//#endif
+public Maler$$Bombe(GameManager gameManager) {
+super(gameManager);
+}
+public void helpItemErstellen() {
+super.helpItemErstellen();
+menu.add(Sprach.HelpItem, loadImage("transparent.png", 0, 0), loadImage("Bombe.png", 0, 0), 0);
+}
+}
+//#endif

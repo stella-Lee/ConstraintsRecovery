@@ -1,0 +1,37 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/Option.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P2/src/Option.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/Option.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P4/src/Option.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/Option.java
+*/
+//#if TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5
+import java.awt.Image;
+public class Option {
+protected boolean status;
+protected String str;
+protected Image img, img2;
+protected int prioritaet;
+public Option(boolean status, String str, Image img, int prioritaet) {
+this.status = status;
+this.str = str;
+this.img = img;
+this.img2 = null;
+this.prioritaet = prioritaet;
+}
+public Option(boolean status, String str, Image img, Image img2, int prioritaet) {
+this.status = status;
+this.str = str;
+this.img = img;
+this.img2 = img2;
+this.prioritaet = prioritaet;
+}
+public Option(boolean status, String str, int prioritaet) {
+this.status = status;
+this.str = str;
+this.img = null;
+this.img2 = null;
+this.prioritaet = prioritaet;
+}
+}
+//#endif

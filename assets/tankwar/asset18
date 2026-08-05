@@ -1,0 +1,36 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/GameManager$$TankWar.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P2/src/GameManager.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/GameManager$$TankWar.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P4/src/GameManager$$TankWar.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/GameManager$$TankWar.java
+*/
+//#if TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5
+//#if TankWar_P1 | TankWar_P3 | TankWar_P4 | TankWar_P5
+abstract interface GameManager$$TankWar {
+//#elif TankWar_P2
+public interface GameManager {
+//#endif
+public static int MAIN_MENU = 0;
+public static int TANK_WAEHLEN = 1;
+public static int SPIELEN = 2;
+public static int NOTE = 3;
+public static int HELP = 4;
+public static int LIAN_WANG = 5;
+public static int BANG_ZHU = 6;
+public static int KAI_FA = 7;
+public static int PAUSE = 8;
+public static int EXIT = 9;
+public static int NAME_VERGEBEN = 10;
+public static int LOSE = 11;
+public static int LEVEL = 12;
+public static int WIN = 13;
+public void aktualisieren();
+public void malenkontrolle();
+public void keyPressBehandeln(int key);
+public void keyReleaseBehandeln(int key);
+public void setStatus(int status);
+public int getBlood();
+public int getTankMenge();
+}
+//#endif

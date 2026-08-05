@@ -141,6 +141,42 @@ class JavaEntityExtractorTest {
     }
 
     @Test
+    void keepsProductSpecificFieldReferenceTargetsWhenSameIdentifierResolvesToDifferentDeclarations() throws Exception {
+        Path file = writeSample("""
+                class ControlUnit {
+                    //#if HomeBasic | HomePremium
+                    private static final Object calc = new Object();
+                    //#elif Enterprise | Professional
+                    private static final Object calc = new Object();
+                    //#endif
+                    void run() {
+                        //#if Enterprise | HomeBasic | HomePremium | Professional
+                        synchronized (calc) {
+                        }
+                        //#endif
+                    }
+                }
+                """);
+
+        EntityExtractionResult result = extract(file);
+        List<JavaRelation> calcReferences = result.relations().stream()
+                .filter(relation -> relation.relationType() == JavaRelationType.FIELD_REFERENCE)
+                .filter(relation -> relation.unresolvedTargetText().equals("calc"))
+                .filter(relation -> relation.sourceLine() == 9)
+                .toList();
+        Map<String, JavaEntity> entitiesById = result.entities().stream()
+                .collect(Collectors.toMap(JavaEntity::entityId, entity -> entity));
+
+        assertEquals(2, calcReferences.size());
+        assertTrue(calcReferences.stream()
+                .map(relation -> entitiesById.get(relation.targetEntityId()).effectiveProductSignature().toString())
+                .anyMatch(signature -> signature.equals("HomeBasic|HomePremium")));
+        assertTrue(calcReferences.stream()
+                .map(relation -> entitiesById.get(relation.targetEntityId()).effectiveProductSignature().toString())
+                .anyMatch(signature -> signature.equals("Enterprise|Professional")));
+    }
+
+    @Test
     void marksUnknownReferencesAsUnresolvedInsteadOfDroppingThem() throws Exception {
         Path file = writeSample("""
                 //#if Enterprise
@@ -292,6 +328,70 @@ class JavaEntityExtractorTest {
     }
 
     @Test
+    void resolvesStringEqualsAsExternalInsteadOfInternalEqualsMethod() throws Exception {
+        Path file = writeSample("""
+                //#if Enterprise
+                class Request {
+                    public boolean equals(Object other) {
+                        return true;
+                    }
+                }
+                class UsesStringEquals {
+                    void run(String actionCmd) {
+                        if ("UP".equals(actionCmd)) {
+                        }
+                    }
+                }
+                //#endif
+                """);
+
+        EntityExtractionResult result = extract(file);
+
+        List<JavaRelation> equalsCalls = result.relations().stream()
+                .filter(relation -> relation.relationType() == JavaRelationType.METHOD_CALL)
+                .filter(relation -> relation.unresolvedTargetText().equals("equals"))
+                .toList();
+        assertTrue(equalsCalls.stream()
+                .anyMatch(relation -> relation.resolutionStatus() == ResolutionStatus.RESOLVED_EXTERNAL));
+        assertTrue(equalsCalls.stream()
+                .noneMatch(relation -> relation.targetEntityId() != null
+                        && entityById(result, relation.targetEntityId()).qualifiedName().endsWith("Request.equals")));
+    }
+
+    @Test
+    void resolvesConstructorCallByArgumentCount() throws Exception {
+        Path file = writeSample("""
+                //#if Enterprise
+                enum ElevatorState {
+                    MOVING_UP
+                }
+                class Request {
+                    Request(int floor) {
+                    }
+                    Request(int floor, ElevatorState direction) {
+                    }
+                }
+                class UsesRequest {
+                    void run(int level) {
+                        new Request(level, ElevatorState.MOVING_UP);
+                    }
+                }
+                //#endif
+                """);
+
+        EntityExtractionResult result = extract(file);
+        JavaRelation constructorCall = result.relations().stream()
+                .filter(relation -> relation.relationType() == JavaRelationType.CONSTRUCTOR_CALL)
+                .filter(relation -> relation.unresolvedTargetText().equals("Request"))
+                .findFirst()
+                .orElseThrow();
+        JavaEntity target = entityById(result, constructorCall.targetEntityId());
+
+        assertEquals(JavaEntityType.CONSTRUCTOR, target.entityType());
+        assertEquals(8, target.startLine());
+    }
+
+    @Test
     void associatesCommonCodeOutsideDirectivesWithCompleteProductUniverse() throws Exception {
         Path file = writeSample("""
                 class Common {
@@ -436,6 +536,13 @@ class JavaEntityExtractorTest {
     private static JavaEntity entity(EntityExtractionResult result, String name) {
         return result.entities().stream()
                 .filter(candidate -> candidate.simpleName().equals(name))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private static JavaEntity entityById(EntityExtractionResult result, String entityId) {
+        return result.entities().stream()
+                .filter(candidate -> candidate.entityId().equals(entityId))
                 .findFirst()
                 .orElseThrow();
     }

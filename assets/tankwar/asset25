@@ -1,0 +1,11 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/GameManager.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/GameManager.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P4/src/GameManager.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/GameManager.java
+*/
+//#if TankWar_P1 | TankWar_P3 | TankWar_P4 | TankWar_P5
+public interface GameManager extends GameManager$$TankWar {
+public void writeScore();
+}
+//#endif

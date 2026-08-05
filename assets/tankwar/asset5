@@ -1,0 +1,23 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/Wall.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P2/src/Wall.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/Wall.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P4/src/Wall.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/Wall.java
+*/
+//#if TankWar_P1 | TankWar_P2 | TankWar_P3 | TankWar_P4 | TankWar_P5
+import java.util.Vector;
+public class Wall extends Wall$$TankWar {
+public Wall(TankManager tankManager, int x_Koordinate, int y_Koordinate, int x_Koernig, int y_Koernig, int wallType) {
+super(tankManager, x_Koordinate, y_Koordinate, x_Koernig, y_Koernig, wallType);
+}
+protected void malen() {
+for (int i = 0; i < wallTeile.size(); i++) {
+int x = ((GameObject) wallTeile.elementAt(i)).x_Koordinate;
+int y = ((GameObject) wallTeile.elementAt(i)).y_Koordinate;
+int wallTypeImage = ((GameObject) wallTeile.elementAt(i)).objectType;
+tankManager.maler.drawImage(wallTypeImage + ".png", x, y);
+}
+}
+}
+//#endif

@@ -1,0 +1,100 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P1/src/Maler$$Re_fuer_PC.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/Maler$$Re_fuer_PC.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P4/src/Maler$$Re_fuer_PC.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/Maler$$Re_fuer_PC.java
+*/
+//#if TankWar_P1 | TankWar_P3 | TankWar_P4 | TankWar_P5
+import java.awt.BorderLayout;
+import java.awt.Button;
+import java.awt.Canvas;
+import java.awt.Color;
+import java.awt.Frame;
+import java.awt.Graphics;
+import java.awt.Image;
+import java.awt.Font;
+import java.awt.Toolkit;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.awt.image.ImageObserver;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Vector;
+import java.util.Random;
+import javax.swing.JFrame;
+import java.awt.TextField;
+abstract class Maler$$Re_fuer_PC extends Maler$$fuer_PC {
+protected TextField textField;
+public String name = "";
+public Maler$$Re_fuer_PC(GameManager gameManager) {
+super(gameManager);
+}
+protected void note(Vector note) {
+if (menu == null) {
+menu = new Menu(((Maler) this));
+menu.setKoordinateImage((GAME_WIDTH + infoWidth) / 2, GAME_HEIGHT / 2);
+menu.setZeileAbstand(0);
+menu.setWaehlbar(false);
+menu.add(Sprach.HNOTE, 0);
+for (int i = 0; i < note.size(); i++) {
+menu.add(((Note) note.elementAt(i)).name + "----" + ((Note) note.elementAt(i)).note, 0);
+}
+}
+menu.erscheinen(gTemp);
+}
+public void nameVergeben() {
+if (menu == null) {
+menu = new Menu(((Maler) this));
+menu.add(Sprach.Name, 0);
+menu.setKoordinateImage((GAME_WIDTH + infoWidth) / 2, GAME_HEIGHT / 2);
+textField = new TextField();
+textField.setBackground(Color.black);
+textField.setForeground(Color.red);
+textField.setSize(100, 40);
+textField.setLocation((GAME_WIDTH + infoWidth) / 2 - 50, GAME_HEIGHT / 2);
+textField.addKeyListener(frame.getKeyListeners()[0]);
+textField.setFont(new Font("Arial", Font.PLAIN, 25));
+frame.add(textField);
+frame.add(BorderLayout.CENTER, ((Maler) this));
+frame.pack();
+textField.requestFocus();
+}
+menu.erscheinen(gTemp);
+}
+public void gameLose() {
+super.gameLose();
+if (System.currentTimeMillis() - time > 3000) {
+gameManager.writeScore();
+}
+}
+protected void gameWin() {
+super.gameWin();
+if (System.currentTimeMillis() - time > 3000) {
+gameManager.writeScore();
+}
+}
+public void menuBehandeln(String option) {
+super.menuBehandeln(option);
+if (option.equals(Sprach.Name)) {
+((Maler) this).setStatus(GameManager.TANK_WAEHLEN);
+((Maler) this).gameManager.setStatus(GameManager.TANK_WAEHLEN);
+((Maler) this).name = textField.getText();
+((Maler) this).requestFocus();
+textField.setVisible(false);
+menu = null;
+}
+if (option.equals(Sprach.MAIN_MENU)) {
+gameManager.writeScore();
+}
+if (option.equals(Sprach.START)) {
+((Maler) this).setStatus(GameManager.NAME_VERGEBEN);
+((Maler) this).gameManager.setStatus(GameManager.NAME_VERGEBEN);
+menu = null;
+}
+}
+public void mainMenuerstellen() {
+super.mainMenuerstellen();
+menu.add(Sprach.NOTE, 9);
+}
+}
+//#endif

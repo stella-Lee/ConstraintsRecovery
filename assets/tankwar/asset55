@@ -1,0 +1,36 @@
+/*
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P3/src/ExplodierenEffekt.java
+C:/Users/JBNU/git/CCIntegrator/CCInegrator/./temp/TankWar_P5/src/ExplodierenEffekt.java
+*/
+//#if TankWar_P3 | TankWar_P5
+public class ExplodierenEffekt extends ExplodierenEffekt$$explodieren {
+private static boolean init = false;
+protected boolean live = true;
+int step = 0;
+public ExplodierenEffekt(TankManager tankManager, int x_Koordinate, int y_Koordinate) {
+super(tankManager, x_Koordinate, y_Koordinate);
+}
+public void malen() {
+if (!init) {
+for (int i = 0; i < 23; i++) {
+tankManager.maler.drawImage("explode" + (i + 1) + ".png", x_Koordinate - 2 * tankManager.koernigkeit2, y_Koordinate - 2 * tankManager.koernigkeit2);
+}
+init = true;
+}
+if (!live) {
+explodieren();
+return;
+}
+if (step == 46) {
+live = false;
+step = 0;
+return;
+}
+tankManager.maler.drawImage("explode" + (step / 2 + 1) + ".png", x_Koordinate - 2 * tankManager.koernigkeit2, y_Koordinate - 2 * tankManager.koernigkeit2);
+if (tankManager.status == GameManager.PAUSE || tankManager.status == GameManager.EXIT) {
+} else {
+step++;
+}
+}
+}
+//#endif

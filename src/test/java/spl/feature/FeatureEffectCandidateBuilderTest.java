@@ -50,7 +50,7 @@ class FeatureEffectCandidateBuilderTest {
     }
 
     @Test
-    void connectsSameSignatureEntitiesBySupportedRelationTypes() {
+    void connectsSameSignatureEntitiesByImplementationRelationTypesOnly() {
         SignatureGroup group = group("G1", block("a/A.java", "G1", 1));
         JavaEntity classEntity = entity("E1", JavaEntityType.CLASS, "A", "a/A.java", 1, "G1", group);
         JavaEntity field = entity("E2", JavaEntityType.FIELD, "A.value", "a/A.java", 2, "G1", group);
@@ -62,9 +62,14 @@ class FeatureEffectCandidateBuilderTest {
 
         FeatureEffectCandidateResult result = builder.build(List.of(group), List.of(classEntity, field, base), graph);
 
-        assertEquals(1, result.candidates().size());
-        assertEquals(3, result.candidates().get(0).memberEntities().size());
-        assertTrue(result.candidates().get(0).involvedAssetFiles().size() > 1);
+        assertEquals(2, result.candidates().size());
+        assertTrue(result.candidates().stream()
+                .anyMatch(candidate -> candidate.memberEntities().size() == 2
+                        && candidate.internalEdges().stream()
+                        .allMatch(edge -> edge.relationType() == JavaRelationType.FIELD_REFERENCE)));
+        assertTrue(result.candidates().stream()
+                .anyMatch(candidate -> candidate.memberEntities().size() == 1
+                        && candidate.memberEntities().get(0).entityId().equals(base.entityId())));
     }
 
     @Test
