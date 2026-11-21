@@ -2,6 +2,8 @@ package spl.requiresanalysis;
 
 public enum RequiresCandidateStatus {
     ELIGIBLE_REQUIRES_EVIDENCE,
+    SINGLE_PRODUCT_SOURCE,
+    SINGLE_PRODUCT_TARGET,
     SAME_SIGNATURE_DIRECTED_DEPENDENCY,
     INTRA_ENTITY,
     INTRA_CLASS,

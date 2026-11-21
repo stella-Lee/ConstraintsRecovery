@@ -28,8 +28,22 @@ public record DependencyEvidence(
         RequiresRelevance requiresRelevance,
         DependencyExclusionReason exclusionReason,
         ResolutionStatus resolutionStatus,
-        List<String> observedProducts
+        List<String> observedProducts,
+        int sourceColumn
 ) {
+    public DependencyEvidence(String relationId, String sourceBlockId, String targetBlockId, String sourceEntityId,
+            String targetEntityId, String targetText, JavaRelationType relationType, Path sourceFile,
+            int sourceLine, String sourceGroupId, String targetGroupId, String sourceSignature,
+            String targetSignature, EntityRole sourceEntityRole, EntityRole targetEntityRole,
+            double dependencyStrength, double domainRelevance, RequiresRelevance requiresRelevance,
+            DependencyExclusionReason exclusionReason, ResolutionStatus resolutionStatus,
+            List<String> observedProducts) {
+        this(relationId, sourceBlockId, targetBlockId, sourceEntityId, targetEntityId, targetText,
+            relationType, sourceFile, sourceLine, sourceGroupId, targetGroupId, sourceSignature,
+            targetSignature, sourceEntityRole, targetEntityRole, dependencyStrength, domainRelevance,
+            requiresRelevance, exclusionReason, resolutionStatus, observedProducts, 0);
+    }
+
     public DependencyEvidence {
         relationId = Objects.requireNonNull(relationId, "relationId");
         sourceBlockId = sourceBlockId == null ? "" : sourceBlockId;

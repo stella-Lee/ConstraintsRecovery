@@ -34,7 +34,7 @@ public final class EntityResultExporter {
 
     private static void exportRelations(EntityExtractionResult result, Path outputFile) throws IOException {
         StringBuilder builder = new StringBuilder();
-        builder.append("relation_id,group_id,signature,relation_type,source_entity_id,target_entity_id,target_text,file,source_line,block_id,observed_products,resolution_status\n");
+        builder.append("relation_id,group_id,signature,relation_type,source_entity_id,target_entity_id,target_text,file,source_line,block_id,observed_products,resolution_status,source_column\n");
         for (JavaRelation relation : result.relations()) {
             builder.append(csv(relation.relationId())).append(',')
                     .append(csv(relation.signatureGroupId())).append(',')
@@ -47,7 +47,8 @@ public final class EntityResultExporter {
                     .append(relation.sourceLine()).append(',')
                     .append(csv(relation.containingBlockId())).append(',')
                     .append(csv(String.join("|", relation.observedProducts()))).append(',')
-                    .append(csv(relation.resolutionStatus().name())).append('\n');
+                    .append(csv(relation.resolutionStatus().name())).append(',')
+                    .append(relation.sourceColumn()).append('\n');
         }
         Files.writeString(outputFile, builder.toString(), StandardCharsets.UTF_8);
     }

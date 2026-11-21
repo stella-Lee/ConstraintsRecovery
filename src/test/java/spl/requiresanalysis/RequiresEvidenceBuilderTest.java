@@ -133,7 +133,7 @@ class RequiresEvidenceBuilderTest {
     }
 
     @Test
-    void treatsSameDeclaringTypeFieldReferenceAcrossBlocksAsInternalImplementationReference() {
+    void preservesSameDeclaringTypeFieldReferenceAcrossImplementationUnits() {
         ConditionalBlock fieldBlock = block("assets/elevator/asset1", ConditionalBlock.DirectiveType.IF,
                 10, 12, "Enterprise");
         ConditionalBlock useBlock = block("assets/elevator/asset1", ConditionalBlock.DirectiveType.IF,
@@ -167,14 +167,13 @@ class RequiresEvidenceBuilderTest {
         );
 
         DependencyEvidence dependency = result.dependencies().get(0);
-        assertEquals(DependencyExclusionReason.INTRA_BLOCK, dependency.exclusionReason());
-        assertEquals(RequiresRelevance.LOW, dependency.requiresRelevance());
+        assertEquals(DependencyExclusionReason.NONE, dependency.exclusionReason());
         assertEquals(RequiresEvidenceBuilder.blockId(fieldBlock), dependency.targetBlockId());
         assertEquals("G1", dependency.targetGroupId());
         assertEquals("Enterprise", dependency.targetSignature());
         AuditReportResult audit = new AuditReportBuilder().build(result);
         assertEquals(1, audit.blockPairs().size());
-        assertEquals(RequiresCandidateStatus.COMMON_TARGET_DEPENDENCY, audit.blockPairs().get(0).candidateStatus());
+        assertEquals(RequiresCandidateStatus.SINGLE_PRODUCT_SOURCE, audit.blockPairs().get(0).candidateStatus());
     }
 
     @Test

@@ -18,8 +18,17 @@ public record JavaRelation(
         String signatureGroupId,
         ProductSignature effectiveProductSignature,
         List<String> observedProducts,
-        ResolutionStatus resolutionStatus
+        ResolutionStatus resolutionStatus,
+        int sourceColumn
 ) {
+    public JavaRelation(String relationId, String sourceEntityId, String targetEntityId, String unresolvedTargetText,
+                        JavaRelationType relationType, Path sourceFile, int sourceLine, String containingBlockId,
+                        String signatureGroupId, ProductSignature effectiveProductSignature,
+                        List<String> observedProducts, ResolutionStatus resolutionStatus) {
+        this(relationId, sourceEntityId, targetEntityId, unresolvedTargetText, relationType, sourceFile, sourceLine,
+                containingBlockId, signatureGroupId, effectiveProductSignature, observedProducts, resolutionStatus, 0);
+    }
+
     public JavaRelation {
         relationId = Objects.requireNonNull(relationId, "relationId");
         relationType = Objects.requireNonNull(relationType, "relationType");

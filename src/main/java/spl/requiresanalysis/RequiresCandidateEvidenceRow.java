@@ -21,8 +21,21 @@ public record RequiresCandidateEvidenceRow(
         String dependencyKind,
         String codeSnippet,
         String sourceProducts,
-        String targetProducts
+        String targetProducts,
+        int sourceColumn
 ) {
+    public RequiresCandidateEvidenceRow(String evidenceId, String sourceFile, int sourceLine, String sourceEntity,
+            String sourceEntityType, String sourceBlockId, String sourceAssetId,
+            boolean sourceIsOutermost, String targetFile, int targetLine, String targetEntity,
+            String targetEntityType, String targetBlockId, String targetAssetId,
+            boolean targetIsOutermost, String dependencyKind, String codeSnippet, String sourceProducts,
+            String targetProducts) {
+        this(evidenceId, sourceFile, sourceLine, sourceEntity, sourceEntityType, sourceBlockId,
+            sourceAssetId, sourceIsOutermost, targetFile, targetLine, targetEntity, targetEntityType,
+            targetBlockId, targetAssetId, targetIsOutermost, dependencyKind, codeSnippet,
+            sourceProducts, targetProducts, 0);
+    }
+
     public RequiresCandidateEvidenceRow {
         evidenceId = Objects.requireNonNull(evidenceId, "evidenceId");
         sourceFile = sourceFile == null ? "" : sourceFile;

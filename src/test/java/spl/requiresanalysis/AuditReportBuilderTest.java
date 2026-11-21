@@ -129,7 +129,7 @@ class AuditReportBuilderTest {
     }
 
     @Test
-    void sameProductSetDifferentEntityPairsCreateSeparateCandidates() throws Exception {
+    void aggregatesDifferentEntitiesInTheSameImplementationUnitPair() throws Exception {
         ConditionalBlock sourceBlock = block("asset1", ConditionalBlock.DirectiveType.IF, 10, 20,
                 "Enterprise");
         ConditionalBlock targetBlock = block("asset2", ConditionalBlock.DirectiveType.IF, 30, 40,
@@ -157,8 +157,9 @@ class AuditReportBuilderTest {
 
         AuditReportResult result = new AuditReportBuilder().build(evidence);
 
-        assertEquals(2, result.blockPairs().size());
-        assertTrue(result.blockPairs().stream().allMatch(pair -> pair.occurrenceCount() == 1));
+        assertEquals(1, result.blockPairs().size());
+        assertEquals(2, result.blockPairs().get(0).evidenceRows().size());
+        assertEquals(RequiresCandidateStatus.SINGLE_PRODUCT_SOURCE, result.blockPairs().get(0).candidateStatus());
     }
 
     @Test
@@ -194,10 +195,10 @@ class AuditReportBuilderTest {
     @Test
     void sameAssetNestedSourceToOutermostTargetIsMandatoryTargetContext() throws Exception {
         AuditReportResult result = singleMethodCallCandidate(
-                block("asset10", ConditionalBlock.DirectiveType.IF, 20, 25, 1, "Enterprise"),
-                block("asset10", ConditionalBlock.DirectiveType.IF, 1, 100, 0, "Enterprise|Professional"),
-                "Enterprise",
-                "Enterprise|Professional");
+                block("asset10", ConditionalBlock.DirectiveType.IF, 20, 25, 1, "Enterprise|Professional"),
+                block("asset10", ConditionalBlock.DirectiveType.IF, 1, 100, 0, "Enterprise|Professional|Ultimate"),
+                "Enterprise|Professional",
+                "Enterprise|Professional|Ultimate");
 
         AuditedBlockPair candidate = result.blockPairs().get(0);
         assertEquals(RequiresCandidateStatus.INTRA_ASSET_MANDATORY_TARGET, candidate.candidateStatus());
@@ -208,39 +209,38 @@ class AuditReportBuilderTest {
     }
 
     @Test
-    void sameAssetOutermostSourceToNestedTargetRequiresManualInspection() throws Exception {
+    void sameAssetOutermostSourceMayDependOnNestedTarget() throws Exception {
         AuditReportResult result = singleMethodCallCandidate(
-                block("asset10", ConditionalBlock.DirectiveType.IF, 1, 100, 0, "Enterprise"),
-                block("asset10", ConditionalBlock.DirectiveType.IF, 20, 25, 1, "Enterprise|Professional"),
-                "Enterprise",
-                "Enterprise|Professional");
+                block("asset10", ConditionalBlock.DirectiveType.IF, 1, 100, 0, "Enterprise|Professional"),
+                block("asset10", ConditionalBlock.DirectiveType.IF, 20, 25, 1, "Enterprise|Professional|Ultimate"),
+                "Enterprise|Professional",
+                "Enterprise|Professional|Ultimate");
 
         AuditedBlockPair candidate = result.blockPairs().get(0);
-        assertEquals(RequiresCandidateStatus.MANDATORY_SOURCE_TO_VARIABLE_TARGET, candidate.candidateStatus());
-        assertFalse(candidate.eligibleForRequires());
-        assertTrue(candidate.requiresManualInspection());
+        assertEquals(RequiresCandidateStatus.ELIGIBLE_REQUIRES_EVIDENCE, candidate.candidateStatus());
+        assertTrue(candidate.eligibleForRequires());
     }
 
     @Test
-    void sameAssetOutermostToOutermostIsRootDependency() throws Exception {
+    void sameAssetOutermostTargetIsExcludedEvenForOutermostSource() throws Exception {
         AuditReportResult result = singleMethodCallCandidate(
-                block("asset10", ConditionalBlock.DirectiveType.IF, 1, 10, 0, "Enterprise"),
-                block("asset10", ConditionalBlock.DirectiveType.IF, 20, 30, 0, "Enterprise|Professional"),
-                "Enterprise",
-                "Enterprise|Professional");
+                block("asset10", ConditionalBlock.DirectiveType.IF, 1, 10, 0, "Enterprise|Professional"),
+                block("asset10", ConditionalBlock.DirectiveType.IF, 20, 30, 0, "Enterprise|Professional|Ultimate"),
+                "Enterprise|Professional",
+                "Enterprise|Professional|Ultimate");
 
         AuditedBlockPair candidate = result.blockPairs().get(0);
-        assertEquals(RequiresCandidateStatus.INTRA_ASSET_ROOT_DEPENDENCY, candidate.candidateStatus());
+        assertEquals(RequiresCandidateStatus.INTRA_ASSET_MANDATORY_TARGET, candidate.candidateStatus());
         assertFalse(candidate.eligibleForRequires());
     }
 
     @Test
     void crossAssetOutermostTargetIsNotExcludedForOutermostAlone() throws Exception {
         AuditReportResult result = singleMethodCallCandidate(
-                block("assetA", ConditionalBlock.DirectiveType.IF, 20, 25, 1, "Enterprise"),
-                block("assetB", ConditionalBlock.DirectiveType.IF, 1, 100, 0, "Enterprise|Professional"),
-                "Enterprise",
-                "Enterprise|Professional");
+                block("assetA", ConditionalBlock.DirectiveType.IF, 20, 25, 1, "Enterprise|Professional"),
+                block("assetB", ConditionalBlock.DirectiveType.IF, 1, 100, 0, "Enterprise|Professional|Ultimate"),
+                "Enterprise|Professional",
+                "Enterprise|Professional|Ultimate");
 
         AuditedBlockPair candidate = result.blockPairs().get(0);
         assertEquals(RequiresCandidateStatus.ELIGIBLE_REQUIRES_EVIDENCE, candidate.candidateStatus());
@@ -306,7 +306,7 @@ class AuditReportBuilderTest {
     }
 
     @Test
-    void commonTargetDoesNotProduceRequiresCandidate() throws Exception {
+    void sameAssetOutermostFieldTargetDoesNotProduceRequiresCandidate() throws Exception {
         ConditionalBlock sourceBlock = block("asset3", ConditionalBlock.DirectiveType.IF, 269, 272,
                 "Enterprise|Professional");
         ConditionalBlock broadTarget = block("asset10", ConditionalBlock.DirectiveType.IF, 8, 145,
@@ -333,7 +333,7 @@ class AuditReportBuilderTest {
 
         AuditReportResult result = new AuditReportBuilder().build(evidence);
         assertEquals(1, result.blockPairs().size());
-        assertEquals(RequiresCandidateStatus.INVALID_DEPENDENCY_KIND, result.blockPairs().get(0).candidateStatus());
+        assertEquals(RequiresCandidateStatus.INTRA_ASSET_MANDATORY_TARGET, result.blockPairs().get(0).candidateStatus());
     }
 
     @Test
@@ -364,11 +364,11 @@ class AuditReportBuilderTest {
         AuditReportResult result = new AuditReportBuilder().build(evidence);
 
         assertEquals(1, result.blockPairs().size());
-        assertEquals(RequiresCandidateStatus.SIGNATURE_INCONSISTENT, result.blockPairs().get(0).candidateStatus());
+        assertEquals(RequiresCandidateStatus.SINGLE_PRODUCT_TARGET, result.blockPairs().get(0).candidateStatus());
     }
 
     @Test
-    void compactCandidateUsesPrimaryEvidenceRelationInsteadOfFirstAggregatedKind() throws Exception {
+    void strictExportExcludesStructuralAndNonqualifyingDirectDependencies() throws Exception {
         ConditionalBlock sourceConstructorBlock = block("asset10", ConditionalBlock.DirectiveType.IF, 27, 31,
                 1, "Enterprise|Professional");
         ConditionalBlock extendsSourceBlock = block("asset10", ConditionalBlock.DirectiveType.IF, 99, 102,
@@ -434,21 +434,13 @@ class AuditReportBuilderTest {
         new AuditReportExporter().export(result, tempDir);
 
         List<String> compactRows = Files.readAllLines(tempDir.resolve("requires_candidates.csv"));
-        String candidate = compactRows.stream()
-                .filter(row -> row.contains("Request.direction"))
-                .findFirst()
-                .orElseThrow();
-
-        assertTrue(candidate.contains("Request.Request"));
-        assertTrue(candidate.contains("Request.direction"));
-        assertTrue(candidate.contains("FIELD_REFERENCE"));
-        assertTrue(candidate.contains("INTRA_CLASS"));
-        assertFalse(candidate.contains(",EXTENDS,"));
-        assertFalse(candidate.contains("EXTENDS|FIELD_REFERENCE"));
+        assertEquals(1, compactRows.size());
+        assertEquals(2, result.blockPairs().size());
+        assertTrue(result.blockPairs().stream().noneMatch(pair -> pair.dependencyKinds().contains("EXTENDS")));
     }
 
     @Test
-    void shouldMergeRepeatedFieldDeclarationsAcrossElifBranchesForRequiresProducts() throws Exception {
+    void usesEachElifFieldDeclarationSignatureIndependently() throws Exception {
         ConditionalBlock executeFirstBlock = block("asset5", ConditionalBlock.DirectiveType.IF, 1470, 1474,
                 1, "BerkeleyDB-FH-3|BerkeleyDB-FH-5");
         ConditionalBlock executeSecondBlock = block("asset5", ConditionalBlock.DirectiveType.ELIF, 1475, 1481,
@@ -506,20 +498,18 @@ class AuditReportBuilderTest {
                 .orElseThrow();
         assertEquals(1, firstCandidate.occurrenceCount());
         assertEquals(1, secondCandidate.occurrenceCount());
-        assertEquals("BerkeleyDB-FH-1|BerkeleyDB-FH-3|BerkeleyDB-FH-4|BerkeleyDB-FH-5|BerkeleyDB-FH-6|BerkeleyDB-FH-9",
+        assertEquals("BerkeleyDB-FH-1|BerkeleyDB-FH-3|BerkeleyDB-FH-4|BerkeleyDB-FH-5|BerkeleyDB-FH-6",
                 firstCandidate.targetProductSet());
-        assertEquals("BerkeleyDB-FH-1|BerkeleyDB-FH-3|BerkeleyDB-FH-4|BerkeleyDB-FH-5|BerkeleyDB-FH-6|BerkeleyDB-FH-9",
-                secondCandidate.targetProductSet());
+        assertEquals("BerkeleyDB-FH-9", secondCandidate.targetProductSet());
         assertEquals("BerkeleyDB-FH-3|BerkeleyDB-FH-5", firstCandidate.sourceProductSet());
         assertEquals("BerkeleyDB-FH-1|BerkeleyDB-FH-4|BerkeleyDB-FH-6|BerkeleyDB-FH-9",
                 secondCandidate.sourceProductSet());
         assertEquals(ProductSetRelation.SOURCE_SUBSET_OF_TARGET, firstCandidate.productSetRelation());
-        assertEquals(ProductSetRelation.SOURCE_SUBSET_OF_TARGET, secondCandidate.productSetRelation());
-        assertFalse(secondCandidate.targetProductSet().equals("BerkeleyDB-FH-9"));
+        assertEquals(RequiresCandidateStatus.SINGLE_PRODUCT_TARGET, secondCandidate.candidateStatus());
     }
 
     @Test
-    void shouldLiftFieldAccessTargetToInternalDeclaredTypeProvider() throws Exception {
+    void keepsDirectFieldAndConstructorTargetsInTheirOwnUnits() throws Exception {
         Path asset5 = tempDir.resolve("asset5");
         Files.write(asset5, List.of(
                 "class EnvironmentImpl {",
@@ -570,15 +560,11 @@ class AuditReportBuilderTest {
 
         AuditReportResult result = new AuditReportBuilder().build(evidence);
 
-        assertEquals(1, result.blockPairs().size());
-        AuditedBlockPair candidate = result.blockPairs().get(0);
-        assertEquals(providerBlockId, candidate.targetBlockId());
-        assertEquals("db.Evictor", candidate.targetEntity());
-        assertEquals("CLASS", candidate.targetEntityType());
-        assertTrue(candidate.dependencyKinds().contains("FIELD_ACCESS_LIFTED_TO_TYPE"));
-        assertTrue(candidate.dependencyKinds().contains("CONSTRUCTOR_CALL"));
-        assertFalse(candidate.targetEntity().contains("evictor"));
-        assertEquals(ProductSetRelation.SOURCE_SUBSET_OF_TARGET, candidate.productSetRelation());
+        assertEquals(2, result.blockPairs().size());
+        assertTrue(result.blockPairs().stream().anyMatch(pair -> pair.targetBlockId().equals(fieldBlockId)
+                && pair.targetEntityType().equals("FIELD") && pair.dependencyKinds().equals("FIELD_REFERENCE")));
+        assertTrue(result.blockPairs().stream().anyMatch(pair -> pair.targetBlockId().equals(providerBlockId)
+                && pair.targetEntityType().equals("CONSTRUCTOR") && pair.dependencyKinds().equals("CONSTRUCTOR_CALL")));
     }
 
     @Test
@@ -619,7 +605,7 @@ class AuditReportBuilderTest {
     }
 
     @Test
-    void shouldUseFeatureSpecificConstructorSignatureInsteadOfBroadProviderClassSignature() throws Exception {
+    void keepsConstructorBlockSignatureSeparateFromFieldAndProviderClass() throws Exception {
         Path asset = tempDir.resolve("assetConstructorSignature");
         Files.write(asset, List.of(
                 "class EnvironmentImpl {",
@@ -663,16 +649,16 @@ class AuditReportBuilderTest {
 
         AuditReportResult result = new AuditReportBuilder().build(evidence);
 
-        assertEquals(1, result.blockPairs().size());
-        AuditedBlockPair candidate = result.blockPairs().get(0);
+        assertEquals(2, result.blockPairs().size());
+        AuditedBlockPair candidate = result.blockPairs().stream()
+                .filter(pair -> pair.dependencyKinds().equals("CONSTRUCTOR_CALL")).findFirst().orElseThrow();
         assertEquals("P1|P2", candidate.targetProductSet());
-        assertEquals(ProductSetRelation.SOURCE_SUBSET_OF_TARGET, candidate.productSetRelation());
-        assertEquals(RequiresRelevance.MEDIUM, candidate.requiresRelevance());
-        assertFalse(candidate.cautionReasons().contains("LIFTED_TARGET_COARSE_SIGNATURE"));
+        assertEquals(constructorBlockId, candidate.targetBlockId());
+        assertEquals(RequiresCandidateStatus.SINGLE_PRODUCT_SOURCE, candidate.candidateStatus());
     }
 
     @Test
-    void shouldCapBroadLiftedFieldOnlyProviderSignatureAtLow() throws Exception {
+    void rejectsSingleProductSourceEvenWhenFieldHasAnInternalProvider() throws Exception {
         Path asset = tempDir.resolve("assetBroadProvider");
         Files.write(asset, List.of(
                 "class EnvironmentImpl {",
@@ -710,7 +696,8 @@ class AuditReportBuilderTest {
         AuditedBlockPair candidate = result.blockPairs().get(0);
         assertEquals("P1|P2|P3", candidate.targetProductSet());
         assertEquals(RequiresRelevance.LOW, candidate.requiresRelevance());
-        assertTrue(candidate.cautionReasons().contains("LIFTED_TARGET_COARSE_SIGNATURE"));
+        assertEquals(RequiresCandidateStatus.SINGLE_PRODUCT_SOURCE, candidate.candidateStatus());
+        assertEquals("FIELD_REFERENCE", candidate.dependencyKinds());
     }
 
     private AuditReportResult buildResult(List<JavaEntity> entities, List<DependencyEvidence> dependencies) {

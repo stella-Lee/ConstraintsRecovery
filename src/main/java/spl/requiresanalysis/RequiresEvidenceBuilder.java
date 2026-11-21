@@ -6,9 +6,6 @@ import spl.dependency.DependencyGraph;
 import spl.dependency.DependencyKindClassifier;
 import spl.entity.EntityExtractionResult;
 import spl.entity.JavaEntity;
-import spl.entity.JavaEntityType;
-import spl.entity.JavaRelationType;
-import spl.entity.ResolutionStatus;
 import spl.grouping.SignatureGroup;
 
 import java.util.ArrayList;
@@ -72,7 +69,6 @@ public final class RequiresEvidenceBuilder {
                         .thenComparing(DependencyEdge::targetEntityId))
                 .map(edge -> dependencyScorer.score(edge, entitiesById, classificationsById))
                 .forEach(dependencies::add);
-        dependencies = mergeSameImplementationFieldReferences(dependencies, entitiesById);
 
         List<BlockSummary> summaries = buildSummaries(blocks, sortedEntities, dependencies, classificationsById, blockToGroup);
         return new RequiresEvidenceResult(
@@ -82,60 +78,6 @@ public final class RequiresEvidenceBuilder {
                 List.copyOf(classificationsById.values()),
                 summaries,
                 blockToGroup
-        );
-    }
-
-    private List<DependencyEvidence> mergeSameImplementationFieldReferences(List<DependencyEvidence> dependencies,
-                                                                            Map<String, JavaEntity> entitiesById) {
-        return dependencies.stream()
-                .map(dependency -> sameImplementationFieldReference(dependency, entitiesById)
-                        ? asInternalImplementationReference(dependency)
-                        : dependency)
-                .toList();
-    }
-
-    private boolean sameImplementationFieldReference(DependencyEvidence dependency,
-                                                     Map<String, JavaEntity> entitiesById) {
-        if (dependency.relationType() != JavaRelationType.FIELD_REFERENCE
-                || dependency.resolutionStatus() != ResolutionStatus.RESOLVED_INTERNAL
-                || dependency.sourceBlockId().isBlank()
-                || dependency.targetBlockId().isBlank()
-                || dependency.sourceBlockId().equals(dependency.targetBlockId())) {
-            return false;
-        }
-        JavaEntity source = entitiesById.get(dependency.sourceEntityId());
-        JavaEntity target = entitiesById.get(dependency.targetEntityId());
-        if (source == null || target == null || target.entityType() != JavaEntityType.FIELD) {
-            return false;
-        }
-        String sourceOwner = declaringType(source);
-        String targetOwner = declaringType(target);
-        return !sourceOwner.isBlank() && sourceOwner.equals(targetOwner);
-    }
-
-    private DependencyEvidence asInternalImplementationReference(DependencyEvidence dependency) {
-        return new DependencyEvidence(
-                dependency.relationId(),
-                dependency.sourceBlockId(),
-                dependency.targetBlockId(),
-                dependency.sourceEntityId(),
-                dependency.targetEntityId(),
-                dependency.targetText(),
-                dependency.relationType(),
-                dependency.sourceFile(),
-                dependency.sourceLine(),
-                dependency.sourceGroupId(),
-                dependency.targetGroupId(),
-                dependency.sourceSignature(),
-                dependency.targetSignature(),
-                dependency.sourceEntityRole(),
-                dependency.targetEntityRole(),
-                dependency.dependencyStrength(),
-                0.2,
-                RequiresRelevance.LOW,
-                DependencyExclusionReason.INTRA_BLOCK,
-                dependency.resolutionStatus(),
-                dependency.observedProducts()
         );
     }
 
@@ -213,15 +155,4 @@ public final class RequiresEvidenceBuilder {
                 : entity.qualifiedName();
     }
 
-    private static String declaringType(JavaEntity entity) {
-        String qualifiedName = entity.qualifiedName();
-        if (qualifiedName == null || qualifiedName.isBlank()) {
-            return "";
-        }
-        String suffix = "." + entity.simpleName();
-        if (!qualifiedName.endsWith(suffix)) {
-            return "";
-        }
-        return qualifiedName.substring(0, qualifiedName.length() - suffix.length());
-    }
 }

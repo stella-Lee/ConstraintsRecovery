@@ -19,11 +19,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public final class ProviderDataFlowEvidenceDetector {
@@ -32,18 +29,18 @@ public final class ProviderDataFlowEvidenceDetector {
             JavaRelationType.FIELD_REFERENCE,
             JavaRelationType.METHOD_CALL
     );
-    private static final Pattern FIELD_TYPE_PATTERN = Pattern.compile(
-            "^(?:@[\\w.]+\\s+)*(?:(?:public|protected|private|static|final|transient|volatile)\\s+)*([\\w.$<>\\[\\]?]+)\\s+\\w+.*"
-    );
-
     public ProviderDataFlowEvidenceResult detect(Collection<SignatureGroup> groups,
                                                  EntityExtractionResult entityResult) {
+        return detect(entityResult, new ProductSignature(groups.stream()
+                .flatMap(group -> group.canonicalSignature().productIds().stream())
+                .distinct().collect(Collectors.joining("|"))));
+    }
+
+    public ProviderDataFlowEvidenceResult detect(EntityExtractionResult entityResult, ProductSignature universe) {
         Map<String, JavaEntity> entitiesById = entityResult.entities().stream()
                 .collect(Collectors.toMap(JavaEntity::entityId, entity -> entity, (left, right) -> left));
         ProviderIndex providerIndex = new ProviderIndex(entityResult.entities());
-        Set<String> productUniverse = groups.stream()
-                .flatMap(group -> group.canonicalSignature().productIds().stream())
-                .collect(Collectors.toCollection(TreeSet::new));
+        Set<String> productUniverse = Set.copyOf(universe.productIds());
         Map<Path, List<String>> lineCache = new HashMap<>();
 
         int examined = 0;
@@ -75,31 +72,30 @@ public final class ProviderDataFlowEvidenceDetector {
                 continue;
             }
 
-            ProviderMatch provider = providerForRelation(relation, target, providerIndex, lineCache).orElse(null);
-            if (provider == null) {
+            Map<JavaEntity, List<String>> observations = new LinkedHashMap<>();
+            for (String product : relation.observedProducts()) {
+                JavaEntity provider = providerForProduct(relation.relationType(), target, product, providerIndex);
+                if (provider != null) {
+                    observations.computeIfAbsent(provider, ignored -> new ArrayList<>()).add(product);
+                }
+            }
+            if (observations.isEmpty()) {
                 unresolvedProviders++;
-                continue;
             }
-            if (sameSet(provider.entity().effectiveProductSignature(), productUniverse)) {
-                commonProviders++;
-                continue;
+            for (var match : observations.entrySet()) {
+                JavaEntity provider = match.getKey();
+                if (sameSet(provider.effectiveProductSignature(), productUniverse)) {
+                    commonProviders++;
+                } else if (!properSubset(relation.effectiveProductSignature(), provider.effectiveProductSignature())) {
+                    nonSubset++;
+                } else {
+                    String key = relation.relationId() + "|" + provider.entityId();
+                    evidenceByKey.putIfAbsent(key, toEvidence(
+                            "PDE-" + String.format("%04d", evidenceByKey.size() + 1),
+                            providerKind(relation.relationType()), relation, source, target, provider,
+                            sourceLine(relation.sourceFile(), relation.sourceLine(), lineCache), match.getValue()));
+                }
             }
-            if (!properSubset(source.effectiveProductSignature(), provider.entity().effectiveProductSignature())) {
-                nonSubset++;
-                continue;
-            }
-
-            String key = relation.relationId() + "|" + source.entityId() + "|" + provider.entity().entityId() + "|"
-                    + relation.sourceFile() + "|" + relation.sourceLine() + "|" + provider.kind();
-            evidenceByKey.putIfAbsent(key, toEvidence(
-                    "PDE-" + String.format("%04d", evidenceByKey.size() + 1),
-                    provider.kind(),
-                    relation,
-                    source,
-                    target,
-                    provider.entity(),
-                    sourceLine(relation.sourceFile(), relation.sourceLine(), lineCache)
-            ));
         }
 
         return new ProviderDataFlowEvidenceResult(
@@ -117,99 +113,48 @@ public final class ProviderDataFlowEvidenceDetector {
         );
     }
 
-    private Optional<ProviderMatch> providerForRelation(JavaRelation relation, JavaEntity target,
-                                                       ProviderIndex providerIndex,
-                                                       Map<Path, List<String>> lineCache) {
-        return switch (relation.relationType()) {
-            case CONSTRUCTOR_CALL -> providerForConstructor(target, providerIndex)
-                    .map(provider -> new ProviderMatch("CONSTRUCTOR_PROVIDER_USE", provider));
-            case FIELD_REFERENCE -> providerForField(target, providerIndex, lineCache)
-                    .map(provider -> new ProviderMatch("FIELD_DECLARED_TYPE_PROVIDER_USE", provider));
-            case METHOD_CALL -> providerForMethod(target, providerIndex)
-                    .map(provider -> new ProviderMatch("METHOD_DECLARING_TYPE_PROVIDER_USE", provider));
-            default -> Optional.empty();
+    private String providerKind(JavaRelationType kind) {
+        return switch (kind) {
+            case CONSTRUCTOR_CALL -> "CONSTRUCTOR_PROVIDER_USE";
+            case FIELD_REFERENCE -> "FIELD_DECLARED_TYPE_PROVIDER_USE";
+            case METHOD_CALL -> "METHOD_DECLARING_TYPE_PROVIDER_USE";
+            default -> throw new IllegalArgumentException("Unsupported provider relation " + kind);
         };
     }
 
-    private Optional<JavaEntity> providerForConstructor(JavaEntity constructor, ProviderIndex providerIndex) {
-        if (constructor.entityType() != JavaEntityType.CONSTRUCTOR) {
-            return Optional.empty();
+    private JavaEntity providerForProduct(JavaRelationType kind, JavaEntity target, String product,
+                                          ProviderIndex providerIndex) {
+        if (kind == JavaRelationType.FIELD_REFERENCE) {
+            return providerIndex.find(target.declaredFieldTypes().get(product), product, null);
         }
-        String name = displayName(constructor);
-        int split = name.lastIndexOf('.');
-        if (split < 0) {
-            return providerIndex.bySimpleName(constructor.simpleName());
+        JavaEntityType expected = kind == JavaRelationType.METHOD_CALL
+                ? JavaEntityType.METHOD : JavaEntityType.CONSTRUCTOR;
+        if (target.entityType() != expected) {
+            return null;
         }
-        String declaringType = name.substring(0, split);
-        return providerIndex.byQualifiedName(declaringType)
-                .or(() -> providerIndex.bySimpleName(constructor.simpleName()));
-    }
-
-    private Optional<JavaEntity> providerForField(JavaEntity field, ProviderIndex providerIndex,
-                                                  Map<Path, List<String>> lineCache) {
-        if (field.entityType() != JavaEntityType.FIELD) {
-            return Optional.empty();
-        }
-        String line = sourceLine(field.sourceFile(), field.startLine(), lineCache);
-        String type = declaredFieldType(line).orElse("");
-        return providerIndex.byTypeText(type);
-    }
-
-    private Optional<JavaEntity> providerForMethod(JavaEntity method, ProviderIndex providerIndex) {
-        if (method.entityType() != JavaEntityType.METHOD && method.entityType() != JavaEntityType.CONSTRUCTOR) {
-            return Optional.empty();
-        }
-        String name = displayName(method);
-        int split = name.lastIndexOf('.');
-        if (split < 0) {
-            return Optional.empty();
-        }
-        return providerIndex.byQualifiedName(name.substring(0, split));
-    }
-
-    private Optional<String> declaredFieldType(String line) {
-        String cleaned = line.strip();
-        int assignment = cleaned.indexOf('=');
-        if (assignment >= 0) {
-            cleaned = cleaned.substring(0, assignment).strip();
-        }
-        Matcher matcher = FIELD_TYPE_PATTERN.matcher(cleaned);
-        if (!matcher.matches()) {
-            return Optional.empty();
-        }
-        return Optional.of(baseType(matcher.group(1)));
-    }
-
-    private String baseType(String type) {
-        String value = type.strip();
-        int generic = value.indexOf('<');
-        if (generic >= 0) {
-            value = value.substring(0, generic);
-        }
-        while (value.endsWith("[]")) {
-            value = value.substring(0, value.length() - 2);
-        }
-        int dot = value.lastIndexOf('.');
-        return dot >= 0 ? value.substring(dot + 1) : value;
+        String name = displayName(target);
+        int separator = name.lastIndexOf('.');
+        return separator < 0 ? null : providerIndex.find(name.substring(0, separator), product, target);
     }
 
     private ProviderDataFlowEvidence toEvidence(String id, String kind, JavaRelation relation, JavaEntity source,
-                                                JavaEntity intermediate, JavaEntity provider, String codeSnippet) {
+                                                JavaEntity intermediate, JavaEntity provider, String codeSnippet,
+                                                List<String> observedProducts) {
         return new ProviderDataFlowEvidence(
                 id,
                 kind,
                 source.entityId(),
                 displayName(source),
                 source.entityType().name(),
-                source.containingBlockId(),
-                source.signatureGroupId(),
-                source.effectiveProductSignature(),
-                source.sourceFile(),
+                AuditReportBuilder.unitId(relation.containingBlockId(), relation.sourceFile()),
+                relation.signatureGroupId(),
+                relation.effectiveProductSignature(),
+                relation.sourceFile(),
                 relation.sourceLine(),
                 provider.entityId(),
                 displayName(provider),
                 provider.entityType().name(),
-                provider.containingBlockId(),
+                AuditReportBuilder.unitId(provider.containingBlockId(), provider.sourceFile()),
                 provider.signatureGroupId(),
                 provider.effectiveProductSignature(),
                 provider.sourceFile(),
@@ -221,8 +166,11 @@ public final class ProviderDataFlowEvidenceDetector {
                 relation.relationType().name(),
                 codeSnippet,
                 "SOURCE_SUBSET_OF_TARGET",
-                sortedUnion(source.observedProducts(), relation.observedProducts()),
-                "RECALL_EXPANSION_ONLY_NOT_DIRECT_REQUIRES;DATAFLOW_LITE"
+                observedProducts.stream().distinct().sorted().toList(),
+                "RECALL_EXPANSION_ONLY_NOT_DIRECT_REQUIRES;"
+                        + (source.entityType() == JavaEntityType.FIELD ? "FIELD_INITIALIZER"
+                        : source.entityType() == JavaEntityType.METHOD || source.entityType() == JavaEntityType.CONSTRUCTOR
+                        ? "OPERATION_BODY" : "TYPE_CONTEXT")
         );
     }
 
@@ -237,12 +185,6 @@ public final class ProviderDataFlowEvidenceDetector {
 
     private boolean sameSet(ProductSignature signature, Set<String> products) {
         return new TreeSet<>(signature.productIds()).equals(products);
-    }
-
-    private List<String> sortedUnion(List<String> left, List<String> right) {
-        Set<String> products = new TreeSet<>(left);
-        products.addAll(right);
-        return List.copyOf(products);
     }
 
     private String sourceLine(Path file, int line, Map<Path, List<String>> lineCache) {
@@ -267,38 +209,24 @@ public final class ProviderDataFlowEvidenceDetector {
                 : entity.qualifiedName();
     }
 
-    private record ProviderMatch(String kind, JavaEntity entity) {
-    }
-
     private final class ProviderIndex {
-        private final Map<String, JavaEntity> qualifiedProviders = new HashMap<>();
-        private final Map<String, List<JavaEntity>> simpleProviders = new HashMap<>();
+        private final Map<String, List<JavaEntity>> byName = new HashMap<>();
 
         private ProviderIndex(Collection<JavaEntity> entities) {
             for (JavaEntity entity : entities) {
-                if (entity.entityType() != JavaEntityType.CLASS && entity.entityType() != JavaEntityType.INTERFACE) {
-                    continue;
+                if (entity.entityType() == JavaEntityType.CLASS || entity.entityType() == JavaEntityType.INTERFACE) {
+                    byName.computeIfAbsent(displayName(entity), ignored -> new ArrayList<>()).add(entity);
                 }
-                String qualified = displayName(entity);
-                qualifiedProviders.putIfAbsent(qualified, entity);
-                simpleProviders.computeIfAbsent(entity.simpleName(), ignored -> new ArrayList<>()).add(entity);
             }
         }
 
-        private Optional<JavaEntity> byQualifiedName(String name) {
-            return Optional.ofNullable(qualifiedProviders.get(name));
-        }
-
-        private Optional<JavaEntity> bySimpleName(String name) {
-            List<JavaEntity> matches = simpleProviders.getOrDefault(name, List.of());
-            return matches.size() == 1 ? Optional.of(matches.get(0)) : Optional.empty();
-        }
-
-        private Optional<JavaEntity> byTypeText(String typeText) {
-            if (typeText.isBlank()) {
-                return Optional.empty();
-            }
-            return byQualifiedName(typeText).or(() -> bySimpleName(baseType(typeText)));
+        private JavaEntity find(String qualifiedName, String product, JavaEntity member) {
+            List<JavaEntity> matches = byName.getOrDefault(qualifiedName, List.of()).stream()
+                    .filter(entity -> entity.observedProducts().contains(product))
+                    .filter(entity -> member == null || entity.sourceFile().equals(member.sourceFile())
+                            && entity.startLine() <= member.startLine() && entity.endLine() >= member.endLine())
+                    .toList();
+            return matches.size() == 1 ? matches.get(0) : null;
         }
     }
 }

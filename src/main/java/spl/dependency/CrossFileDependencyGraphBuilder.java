@@ -26,6 +26,7 @@ public final class CrossFileDependencyGraphBuilder {
     private static final Comparator<DependencyEdge> EDGE_ORDER =
             Comparator.comparing((DependencyEdge edge) -> edge.sourceFile().toString())
                     .thenComparingInt(DependencyEdge::sourceLine)
+                    .thenComparingInt(DependencyEdge::sourceColumn)
                     .thenComparing(edge -> edge.relationType().name())
                     .thenComparing(DependencyEdge::sourceEntityId)
                     .thenComparing(DependencyEdge::targetEntityId);
@@ -146,7 +147,8 @@ public final class CrossFileDependencyGraphBuilder {
                 target.effectiveProductSignature(),
                 crossFile,
                 relation.observedProducts(),
-                ResolutionStatus.RESOLVED_INTERNAL
+                ResolutionStatus.RESOLVED_INTERNAL,
+                relation.sourceColumn()
         );
         return new DependencyResolutionResult(relation, edge, null);
     }
@@ -156,14 +158,15 @@ public final class CrossFileDependencyGraphBuilder {
     }
 
     private record EdgeKey(String sourceEntityId, String targetEntityId, String relationType,
-                           String sourceFile, int sourceLine) {
+                           String sourceFile, int sourceLine, int sourceColumn) {
         private static EdgeKey from(DependencyEdge edge) {
             return new EdgeKey(
                     edge.sourceEntityId(),
                     edge.targetEntityId(),
                     edge.relationType().name(),
                     edge.sourceFile().toString(),
-                    edge.sourceLine()
+                    edge.sourceLine(),
+                    edge.sourceColumn()
             );
         }
     }
@@ -182,7 +185,7 @@ public final class CrossFileDependencyGraphBuilder {
 
         private String sortKey() {
             return edge.sourceFile() + "|" + edge.sourceLine() + "|" + edge.relationType()
-                    + "|" + edge.sourceEntityId() + "|" + edge.targetEntityId();
+                    + "|" + edge.sourceEntityId() + "|" + edge.targetEntityId() + "|" + edge.sourceColumn();
         }
 
         private DependencyEdge toEdge(String edgeId) {
@@ -201,7 +204,8 @@ public final class CrossFileDependencyGraphBuilder {
                     edge.targetSignature(),
                     edge.crossFile(),
                     new ArrayList<>(observedProducts),
-                    edge.resolutionStatus()
+                    edge.resolutionStatus(),
+                    edge.sourceColumn()
             );
         }
     }

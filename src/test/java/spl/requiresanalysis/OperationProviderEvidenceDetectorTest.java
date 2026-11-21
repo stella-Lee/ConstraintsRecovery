@@ -24,7 +24,7 @@ class OperationProviderEvidenceDetectorTest {
 
         assertEquals(1, result.evidence().size());
         OperationProviderEvidence operation = result.evidence().get(0);
-        assertEquals("pkg.Client.execute", operation.operationKey());
+        assertEquals("pkg.Client.execute@E1", operation.operationKey());
         assertEquals(2, operation.supportingRelationCount());
         assertEquals("CONSTRUCTOR_PROVIDER_USE|FIELD_DECLARED_TYPE_PROVIDER_USE", operation.evidenceKinds());
         assertEquals("CONSTRUCTOR_CALL|FIELD_REFERENCE", operation.relationTypes());

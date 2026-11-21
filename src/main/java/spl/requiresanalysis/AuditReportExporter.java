@@ -1,5 +1,10 @@
 package spl.requiresanalysis;
 
+import spl.dependency.DependencyKindClassifier;
+import spl.dependency.UnresolvedDependencyRelation;
+import spl.entity.JavaRelation;
+import spl.entity.ResolutionStatus;
+
 import java.io.IOException;
 import java.nio.file.FileSystemException;
 import java.nio.charset.StandardCharsets;
@@ -8,15 +13,59 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public final class AuditReportExporter {
     public void export(AuditReportResult result, Path outputDirectory) throws IOException {
         Files.createDirectories(outputDirectory);
         exportEntities(result, outputDirectory.resolve("audited-entity-classification.csv"));
-        exportCandidateDetails(result, outputDirectory.resolve("requires_candidate_details.csv"));
-        exportCompactCandidates(result, outputDirectory.resolve("requires_candidates.csv"));
-        exportCandidateEvidence(result, outputDirectory.resolve("requires_candidate_evidence.csv"));
+        AuditReportResult strict = new AuditReportResult(result.entityClassifications(),
+                result.blockPairs().stream().filter(AuditedBlockPair::eligibleForRequires).toList());
+        exportCandidateDetails(strict, outputDirectory.resolve("requires_candidate_details.csv"));
+        exportCompactCandidates(strict, outputDirectory.resolve("requires_candidates.csv"));
+        exportCandidateEvidence(strict, outputDirectory.resolve("requires_candidate_evidence.csv"));
+    }
+
+    public void exportExclusions(AuditReportResult result, List<JavaRelation> relations,
+                                 List<UnresolvedDependencyRelation> unresolvedRelations,
+                                 Path outputDirectory) throws IOException {
+        Map<String, String> failures = unresolvedRelations.stream().collect(Collectors.toMap(
+                UnresolvedDependencyRelation::relationId, UnresolvedDependencyRelation::failureReason));
+        List<String> lines = new ArrayList<>();
+        lines.add("evidence_id,source_file,source_line,source_entity,target_entity,dependency_kind,source_unit,target_unit,source_products,target_products,resolution_status,reason,source_column,target_file,target_line,resolution_detail");
+        for (AuditedBlockPair pair : result.blockPairs()) {
+            if (!pair.eligibleForRequires()) {
+                for (RequiresCandidateEvidenceRow row : pair.evidenceRows()) {
+                    lines.add(csv(row.evidenceId(), row.sourceFile(), row.sourceLine(), row.sourceEntity(),
+                            row.targetEntity(), row.dependencyKind(), pair.sourceBlockId(), pair.targetBlockId(),
+                            row.sourceProducts(), row.targetProducts(), "RESOLVED_INTERNAL",
+                            candidateExclusionReason(pair), row.sourceColumn(), row.targetFile(), row.targetLine(), ""));
+                }
+            }
+        }
+        for (JavaRelation relation : relations) {
+            var kind = relation.relationType();
+            var status = relation.resolutionStatus();
+            String reason;
+            if (DependencyKindClassifier.isStructuralDependency(kind)) {
+                reason = "STRUCTURAL_DEPENDENCY";
+            } else if (!DependencyKindClassifier.isImplementationDependency(kind)) {
+                reason = "UNSUPPORTED_RELATION_KIND";
+            } else if (status != ResolutionStatus.RESOLVED_INTERNAL) {
+                reason = status.name();
+            } else if (failures.containsKey(relation.relationId())) {
+                reason = "INCOMPLETE_INTERNAL_RELATION";
+            } else {
+                continue;
+            }
+            lines.add(csv(relation.relationId(), relation.sourceFile(), relation.sourceLine(),
+                    relation.sourceEntityId(), relation.unresolvedTargetText(), kind,
+                    AuditReportBuilder.unitId(relation.containingBlockId(), relation.sourceFile()), "",
+                    relation.effectiveProductSignature(), "", status, reason, relation.sourceColumn(), "", "",
+                    failures.getOrDefault(relation.relationId(), "")));
+        }
+        write(outputDirectory.resolve("requires_exclusions.csv"), lines);
     }
 
     private void exportEntities(AuditReportResult result, Path outputFile) throws IOException {
@@ -163,7 +212,7 @@ public final class AuditReportExporter {
 
     private void exportCandidateEvidence(AuditReportResult result, Path outputFile) throws IOException {
         List<String> lines = new ArrayList<>();
-        lines.add("evidence_id,candidate_id,source_file,source_line,source_entity,source_entity_type,source_block_id,source_asset_id,source_is_outermost,target_file,target_line,target_entity,target_entity_type,target_block_id,target_asset_id,target_is_outermost,dependency_kind,code_snippet,source_products,target_products");
+        lines.add("evidence_id,candidate_id,source_file,source_line,source_entity,source_entity_type,source_block_id,source_asset_id,source_is_outermost,target_file,target_line,target_entity,target_entity_type,target_block_id,target_asset_id,target_is_outermost,dependency_kind,code_snippet,source_products,target_products,source_column");
         for (int index = 0; index < result.blockPairs().size(); index++) {
             String candidateId = candidateId(index);
             for (RequiresCandidateEvidenceRow evidence : result.blockPairs().get(index).evidenceRows()) {
@@ -187,7 +236,8 @@ public final class AuditReportExporter {
                         evidence.dependencyKind(),
                         evidence.codeSnippet(),
                         evidence.sourceProducts(),
-                        evidence.targetProducts()
+                        evidence.targetProducts(),
+                        evidence.sourceColumn()
                 ));
             }
         }
@@ -205,6 +255,8 @@ public final class AuditReportExporter {
     private String candidateExclusionReason(AuditedBlockPair pair) {
         return switch (pair.candidateStatus()) {
             case ELIGIBLE_REQUIRES_EVIDENCE -> "";
+            case SINGLE_PRODUCT_SOURCE -> "SINGLE_PRODUCT_SOURCE";
+            case SINGLE_PRODUCT_TARGET -> "SINGLE_PRODUCT_TARGET";
             case COMMON_TARGET_DEPENDENCY -> "TARGET_PRESENT_IN_ALL_PRODUCTS";
             case INTRA_ASSET_ROOT_DEPENDENCY -> "SAME_ASSET_ROOT_CONTEXT";
             case INTRA_ASSET_MANDATORY_TARGET -> "TARGET_IS_SAME_ASSET_OUTERMOST_BLOCK";

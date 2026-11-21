@@ -13,7 +13,8 @@ public final class SignatureProviderBundleEvidenceDetector {
     public SignatureProviderBundleEvidenceResult detect(OperationProviderEvidenceResult operationResult) {
         Map<String, Bucket> buckets = new LinkedHashMap<>();
         for (OperationProviderEvidence evidence : operationResult.evidence()) {
-            String key = evidence.sourceSignature() + "->" + evidence.providerSignature();
+            String key = evidence.sourceSignature() + "->" + evidence.providerSignature()
+                    + "|" + evidence.sourceBlockIds() + "|" + evidence.providerEntityId();
             buckets.computeIfAbsent(key, ignored -> new Bucket()).add(evidence);
         }
 

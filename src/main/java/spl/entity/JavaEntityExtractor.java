@@ -2,19 +2,20 @@ package spl.entity;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
-import com.github.javaparser.ParseProblemException;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ParseStart;
 import com.github.javaparser.Problem;
 import com.github.javaparser.Providers;
+import com.github.javaparser.resolution.declarations.ResolvedConstructorDeclaration;
+import com.github.javaparser.resolution.declarations.ResolvedDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedValueDeclaration;
-import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.CastExpr;
@@ -27,9 +28,10 @@ import com.github.javaparser.ast.stmt.LocalClassDeclarationStmt;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.MemoryTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
-import com.github.javaparser.resolution.declarations.ResolvedConstructorDeclaration;
 import spl.ConditionalBlock;
 import spl.ProductSignature;
 import spl.grouping.SignatureGroup;
@@ -42,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,6 +52,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
+import java.util.function.Supplier;
 
 public final class JavaEntityExtractor {
     private static final Comparator<EntityDraft> ENTITY_ORDER =
@@ -61,7 +65,9 @@ public final class JavaEntityExtractor {
                     .thenComparingInt(RelationDraft::sourceLine)
                     .thenComparing(draft -> draft.relationType().name())
                     .thenComparing(RelationDraft::sourceSortKey)
-                    .thenComparing(RelationDraft::targetText);
+                    .thenComparing(RelationDraft::targetText)
+                    .thenComparingInt(RelationDraft::sourceColumn)
+                    .thenComparing(draft -> draft.targetEntityKey() == null ? "" : draft.targetEntityKey().toString());
     private static final Set<String> KNOWN_EXTERNAL_TYPES = Set.of(
             "Appendable", "ArrayList", "Boolean", "Byte", "Character", "Class", "Collection",
             "Comparable", "Dimension", "Double", "Exception", "Float", "HashMap", "HashSet",
@@ -70,25 +76,19 @@ public final class JavaEntityExtractor {
             "StringBuilder", "Thread", "Throwable", "Vector", "Void"
     );
 
-    private final JavaParser javaParser;
-    private final ProductProjectionGenerator projectionGenerator;
-
-    public JavaEntityExtractor() {
-        CombinedTypeSolver typeSolver = new CombinedTypeSolver();
-        typeSolver.add(new ReflectionTypeSolver());
-        ParserConfiguration configuration = new ParserConfiguration()
-                .setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_17)
-                .setSymbolResolver(new JavaSymbolSolver(typeSolver));
-        this.javaParser = new JavaParser(configuration);
-        this.projectionGenerator = new ProductProjectionGenerator();
-    }
+    private final ProductProjectionGenerator projectionGenerator = new ProductProjectionGenerator();
 
     public EntityExtractionResult extract(Collection<SignatureGroup> groups, Collection<Path> assetFiles) {
+        return extract(groups, assetFiles, completeProductSignature(groups));
+    }
+
+    public EntityExtractionResult extract(Collection<SignatureGroup> groups, Collection<Path> assetFiles,
+                                          ProductSignature commonSignature) {
         Objects.requireNonNull(groups, "groups");
         Objects.requireNonNull(assetFiles, "assetFiles");
+        Objects.requireNonNull(commonSignature, "commonSignature");
 
         ExtractionIndex index = ExtractionIndex.from(groups);
-        ProductSignature commonSignature = completeProductSignature(groups);
         List<String> productUniverse = commonSignature.productIds();
         List<EntityDraft> entityDrafts = new ArrayList<>();
         List<RelationDraft> relationDrafts = new ArrayList<>();
@@ -97,46 +97,55 @@ public final class JavaEntityExtractor {
         int projectionAttempts = 0;
         int successfulProjections = 0;
 
-        for (Path assetFile : assetFiles.stream().sorted(Comparator.comparing(Path::toString)).toList()) {
-            Path normalizedFile = assetFile.toAbsolutePath().normalize();
+        Map<Path, String> sources = new LinkedHashMap<>();
+        for (Path assetFile : assetFiles.stream().sorted().toList()) {
+            Path sourceFile = assetFile.toAbsolutePath().normalize();
             try {
-                String source = Files.readString(normalizedFile, StandardCharsets.UTF_8);
-                for (String product : productUniverse) {
-                    projectionAttempts++;
-                    ProductProjection projection = projectionGenerator.generate(normalizedFile, source, product);
-                    ParseResult<CompilationUnit> parseResult = javaParser.parse(
-                            ParseStart.COMPILATION_UNIT,
-                            Providers.provider(projection.source())
-                    );
-                    if (!parseResult.isSuccessful() || parseResult.getResult().isEmpty()) {
-                        parseFailures.addAll(toParseFailures(normalizedFile, product, parseResult.getProblems()));
-                        continue;
-                    }
-                    successfulProjections++;
-                    parsedFiles.add(normalizedFile);
-                    collectFromCompilationUnit(
-                            parseResult.getResult().get(),
-                            normalizedFile,
-                            product,
-                            index,
-                            commonSignature,
-                            entityDrafts,
-                            relationDrafts
-                    );
-                    collectFieldReferences(
-                            parseResult.getResult().get(),
-                            normalizedFile,
-                            product,
-                            index,
-                            commonSignature,
-                            entityDrafts,
-                            relationDrafts
-                    );
-                }
+                sources.put(sourceFile, Files.readString(sourceFile, StandardCharsets.UTF_8));
             } catch (IOException exception) {
-                parseFailures.add(new ParseFailure(normalizedFile, "<all>", 0, exception.getMessage(), true));
-            } catch (ParseProblemException exception) {
-                parseFailures.add(new ParseFailure(normalizedFile, "<all>", 0, exception.getMessage(), true));
+                parseFailures.add(new ParseFailure(sourceFile, "<all>", 0, exception.getMessage(), true));
+            }
+        }
+
+        for (String product : productUniverse) {
+            MemoryTypeSolver projectedTypes = new MemoryTypeSolver();
+            CombinedTypeSolver typeSolver = new CombinedTypeSolver(projectedTypes, new ReflectionTypeSolver());
+            JavaParser parser = new JavaParser(new ParserConfiguration()
+                    .setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_17)
+                    .setSymbolResolver(new JavaSymbolSolver(typeSolver)));
+            Map<Path, CompilationUnit> units = new LinkedHashMap<>();
+            for (var asset : sources.entrySet()) {
+                Path sourceFile = asset.getKey();
+                projectionAttempts++;
+                ProductProjection projection = projectionGenerator.generate(sourceFile, asset.getValue(), product);
+                ParseResult<CompilationUnit> parsed = parser.parse(
+                        ParseStart.COMPILATION_UNIT, Providers.provider(projection.source()));
+                if (!parsed.isSuccessful() || parsed.getResult().isEmpty()) {
+                    parseFailures.addAll(toParseFailures(sourceFile, product, parsed.getProblems()));
+                    continue;
+                }
+                CompilationUnit unit = parsed.getResult().orElseThrow().setStorage(sourceFile);
+                units.put(sourceFile, unit);
+                successfulProjections++;
+                parsedFiles.add(sourceFile);
+            }
+
+            Map<String, List<TypeDeclaration<?>>> byType = units.values().stream()
+                    .flatMap(unit -> unit.findAll(TypeDeclaration.class).stream())
+                    .<TypeDeclaration<?>>map(type -> type)
+                    .filter(type -> type.findAncestor(LocalClassDeclarationStmt.class).isEmpty())
+                    .collect(Collectors.groupingBy(type -> qualifiedName(type.findCompilationUnit().orElseThrow(), type)));
+            byType.forEach((name, declarations) -> {
+                if (declarations.size() == 1) {
+                    projectedTypes.addDeclaration(name, JavaParserFacade.get(typeSolver)
+                            .getTypeDeclaration(declarations.get(0)));
+                }
+            });
+
+            for (var asset : units.entrySet()) {
+                collectFromCompilationUnit(asset.getValue(), asset.getKey(), product, index,
+                        commonSignature, entityDrafts, relationDrafts);
+                collectFieldReferences(asset.getValue(), asset.getKey(), product, index, commonSignature, relationDrafts);
             }
         }
 
@@ -193,94 +202,41 @@ public final class JavaEntityExtractor {
 
     private static void collectFieldReferences(CompilationUnit unit, Path sourceFile, String product,
                                                ExtractionIndex index, ProductSignature commonSignature,
-                                               List<EntityDraft> entityDrafts,
                                                List<RelationDraft> relationDrafts) {
-        Map<String, EntityDraft> fieldsByName = entityDrafts.stream()
-                .filter(draft -> draft.sourceFile().equals(sourceFile))
-                .filter(draft -> draft.observedProducts().contains(product))
-                .filter(draft -> draft.entityType() == JavaEntityType.FIELD)
-                .collect(Collectors.toMap(EntityDraft::simpleName, draft -> draft, (left, right) -> left));
         for (FieldAccessExpr access : unit.findAll(FieldAccessExpr.class)) {
-            ResolvedField resolvedField = resolveField(access).orElse(null);
-            addFieldReference(access, access.getNameAsString(), fieldsByName, resolvedField, sourceFile, product,
-                    index, commonSignature, unit, relationDrafts);
+            addResolvedFieldReference(access, access.getNameAsString(), access::resolve,
+                    true, sourceFile, product, index, commonSignature, unit, relationDrafts);
         }
+        Set<String> declaredFields = unit.findAll(FieldDeclaration.class).stream()
+                .flatMap(field -> field.getVariables().stream())
+                .map(VariableDeclarator::getNameAsString)
+                .collect(Collectors.toSet());
         for (NameExpr name : unit.findAll(NameExpr.class)) {
-            Optional<ResolvedField> resolvedField = resolveField(name);
-            if (resolvedField.isPresent() || isFieldReferenceCandidate(name, fieldsByName)) {
-                addFieldReference(name, name.getNameAsString(), fieldsByName, resolvedField.orElse(null), sourceFile, product,
-                        index, commonSignature, unit, relationDrafts);
-            }
+            addResolvedFieldReference(name, name.getNameAsString(), name::resolve,
+                    declaredFields.contains(name.getNameAsString()), sourceFile, product, index,
+                    commonSignature, unit, relationDrafts);
         }
     }
 
-    private static boolean isFieldReferenceCandidate(NameExpr name, Map<String, EntityDraft> fieldsByName) {
-        if (!fieldsByName.containsKey(name.getNameAsString())) {
-            return false;
+    private static void addResolvedFieldReference(Node node, String name,
+                                                  Supplier<ResolvedValueDeclaration> resolver,
+                                                  boolean auditUnresolved, Path sourceFile, String product,
+                                                  ExtractionIndex index, ProductSignature commonSignature,
+                                                  CompilationUnit unit, List<RelationDraft> relationDrafts) {
+        ResolvedValueDeclaration declaration = resolveDeclaration(resolver);
+        if (declaration == null ? !auditUnresolved : !declaration.isField()) {
+            return;
         }
-        if (name.findAncestor(VariableDeclarator.class)
-                .filter(variable -> variable.getNameAsString().equals(name.getNameAsString()))
-                .isPresent()) {
-            return false;
-        }
-        if (name.findAncestor(Parameter.class)
-                .filter(parameter -> parameter.getNameAsString().equals(name.getNameAsString()))
-                .isPresent()) {
-            return false;
-        }
-        Optional<Node> parent = name.getParentNode();
-        if (parent.isPresent() && parent.get() instanceof MethodCallExpr call
-                && call.getNameAsString().equals(name.getNameAsString())) {
-            return false;
-        }
-        return name.findAncestor(ClassOrInterfaceType.class).isEmpty();
+        addRelation(node, JavaRelationType.FIELD_REFERENCE, name, sourceFile, product, index, commonSignature,
+                unit, relationDrafts, declaration);
     }
 
-    private static void addFieldReference(Node node, String fieldName, Map<String, EntityDraft> fieldsByName,
-                                          ResolvedField resolvedField,
-                                          Path sourceFile, String product, ExtractionIndex index,
-                                          ProductSignature commonSignature, CompilationUnit unit,
-                                          List<RelationDraft> relationDrafts) {
-        EntityDraft target = fieldsByName.get(fieldName);
-        BlockContext context = index.findContext(sourceFile, startLine(node))
-                .orElseGet(() -> BlockContext.common(commonSignature));
-        relationDrafts.add(new RelationDraft(
-                node,
-                sourceFile,
-                List.of(product),
-                startLine(node),
-                JavaRelationType.FIELD_REFERENCE,
-                fieldName,
-                "",
-                -1,
-                target == null ? null : target.stableName(),
-                target == null ? null : target.key(),
-                sourceEntityKeyFor(unit, sourceFile, node),
-                resolvedField != null,
-                context
-        ));
-    }
-
-    private static Optional<ResolvedField> resolveField(NameExpr name) {
+    private static <T extends ResolvedDeclaration> T resolveDeclaration(Supplier<T> resolver) {
         try {
-            ResolvedValueDeclaration declaration = name.resolve();
-            if (declaration.isField()) {
-                return Optional.of(new ResolvedField(declaration.getName()));
-            }
+            return resolver.get();
         } catch (RuntimeException ignored) {
+            return null;
         }
-        return Optional.empty();
-    }
-
-    private static Optional<ResolvedField> resolveField(FieldAccessExpr access) {
-        try {
-            ResolvedValueDeclaration declaration = access.resolve();
-            if (declaration.isField()) {
-                return Optional.of(new ResolvedField(declaration.getName()));
-            }
-        } catch (RuntimeException ignored) {
-        }
-        return Optional.empty();
     }
 
     private static void addEntity(Node node, JavaEntityType type, String simpleName, String qualifiedName,
@@ -333,53 +289,45 @@ public final class JavaEntityExtractor {
     private static void addRelation(Node node, JavaRelationType relationType, String targetText, Path sourceFile,
                                     String product, ExtractionIndex index, ProductSignature commonSignature,
                                     CompilationUnit unit, List<RelationDraft> relationDrafts) {
+        var declaration = switch (relationType) {
+            case METHOD_CALL -> resolveDeclaration(((MethodCallExpr) node)::resolve);
+            case CONSTRUCTOR_CALL -> node instanceof ObjectCreationExpr creation
+                    ? resolveDeclaration(creation::resolve)
+                    : resolveDeclaration(((ExplicitConstructorInvocationStmt) node)::resolve);
+            case EXTENDS, IMPLEMENTS -> resolveDeclaration(() -> ((ClassOrInterfaceType) node)
+                    .resolve().asReferenceType().getTypeDeclaration().orElseThrow());
+            default -> null;
+        };
+        addRelation(node, relationType, targetText, sourceFile, product, index, commonSignature, unit,
+                relationDrafts, declaration);
+    }
+
+    private static void addRelation(Node node, JavaRelationType relationType, String targetText, Path sourceFile,
+                                    String product, ExtractionIndex index, ProductSignature commonSignature,
+                                    CompilationUnit unit, List<RelationDraft> relationDrafts,
+                                    ResolvedDeclaration declaration) {
         BlockContext context = index.findContext(sourceFile, startLine(node))
                 .orElseGet(() -> BlockContext.common(commonSignature));
-        boolean resolvedByParser = parserCanResolve(node, relationType);
-        relationDrafts.add(new RelationDraft(
-                node,
-                sourceFile,
-                List.of(product),
-                startLine(node),
-                relationType,
-                targetText,
-                targetDeclaringType(node, relationType),
-                argumentCount(node),
-                null,
-                null,
-                sourceEntityKeyFor(unit, sourceFile, node),
-                resolvedByParser,
-                context
-        ));
-    }
-
-    private static String targetDeclaringType(Node node, JavaRelationType relationType) {
-        try {
-            if (relationType == JavaRelationType.METHOD_CALL && node instanceof MethodCallExpr call) {
-                return call.resolve().declaringType().getQualifiedName();
-            }
-            if (relationType == JavaRelationType.CONSTRUCTOR_CALL && node instanceof ObjectCreationExpr creation) {
-                return creation.resolve().declaringType().getQualifiedName();
-            }
-        } catch (RuntimeException ignored) {
-        }
-        if (relationType == JavaRelationType.CONSTRUCTOR_CALL && node instanceof ObjectCreationExpr creation) {
-            return creation.getType().getNameAsString();
-        }
-        return "";
-    }
-
-    private static int argumentCount(Node node) {
-        if (node instanceof MethodCallExpr call) {
-            return call.getArguments().size();
-        }
-        if (node instanceof ObjectCreationExpr creation) {
-            return creation.getArguments().size();
-        }
-        if (node instanceof ExplicitConstructorInvocationStmt call) {
-            return call.getArguments().size();
-        }
-        return -1;
+        EntityKey targetKey = declaration == null ? null : declaration.toAst()
+                .map(target -> {
+                    Node actualTarget = target instanceof FieldDeclaration field
+                            ? field.getVariables().stream()
+                                    .filter(variable -> variable.getNameAsString().equals(declaration.getName()))
+                                    .findFirst().orElse(null)
+                            : target;
+                    if (actualTarget == null) {
+                        return null;
+                    }
+                    return actualTarget.findCompilationUnit().flatMap(CompilationUnit::getStorage)
+                            .map(storage -> sourceEntityKeyFor(actualTarget.findCompilationUnit().orElseThrow(),
+                                    storage.getPath(), actualTarget))
+                            .orElse(null);
+                }).orElse(null);
+        boolean external = declaration != null && declaration.toAst().isEmpty()
+                && !(declaration instanceof ResolvedConstructorDeclaration constructor
+                && constructor.declaringType().toAst().isPresent());
+        relationDrafts.add(new RelationDraft(node, sourceFile, List.of(product), startLine(node), relationType,
+                targetText, targetKey, sourceEntityKeyFor(unit, sourceFile, node), external, context));
     }
 
     private static EntityExtractionResult buildResult(List<EntityDraft> entityDrafts,
@@ -408,7 +356,7 @@ public final class JavaEntityExtractor {
         for (int index = 0; index < orderedRelationDrafts.size(); index++) {
             RelationDraft draft = orderedRelationDrafts.get(index);
             String sourceEntityId = draft.sourceEntityKey() == null ? null : entityIdsByKey.get(draft.sourceEntityKey());
-            TargetResolution targetResolution = entityIndex.resolve(draft, sourceEntityId);
+            TargetResolution targetResolution = entityIndex.resolve(draft);
             relations.add(draft.toRelation("R" + (index + 1), sourceEntityId,
                     targetResolution.targetEntityId(), targetResolution.status()));
         }
@@ -466,21 +414,6 @@ public final class JavaEntityExtractor {
                 .isPresent();
     }
 
-    private static boolean parserCanResolve(Node node, JavaRelationType relationType) {
-        try {
-            if (relationType == JavaRelationType.METHOD_CALL && node instanceof MethodCallExpr call) {
-                ResolvedMethodDeclaration ignored = call.resolve();
-                return true;
-            }
-            if (relationType == JavaRelationType.CONSTRUCTOR_CALL && node instanceof ObjectCreationExpr creation) {
-                ResolvedConstructorDeclaration ignored = creation.resolve();
-                return true;
-            }
-        } catch (RuntimeException ignored) {
-        }
-        return false;
-    }
-
     private static EntityKey sourceEntityKeyFor(CompilationUnit unit, Path sourceFile, Node relationNode) {
         Optional<Node> current = Optional.ofNullable(relationNode);
         while (current.isPresent()) {
@@ -496,7 +429,7 @@ public final class JavaEntityExtractor {
                         parameterSignature(declaration), startLine(declaration));
             }
             if (node instanceof VariableDeclarator variable
-                    && variable.findAncestor(FieldDeclaration.class).isPresent()) {
+                    && variable.getParentNode().filter(FieldDeclaration.class::isInstance).isPresent()) {
                 return EntityKey.forField(sourceFile, qualifiedName(unit, variable),
                         declaringTypeName(unit, variable), variable.getNameAsString(), startLine(variable));
             }
@@ -567,7 +500,7 @@ public final class JavaEntityExtractor {
         Optional<Node> current = Optional.of(declaration);
         while (current.isPresent()) {
             Node node = current.get();
-            if (node instanceof ClassOrInterfaceDeclaration typeDeclaration) {
+            if (node instanceof TypeDeclaration<?> typeDeclaration) {
                 names.add(0, typeDeclaration.getNameAsString());
             } else if (node instanceof MethodDeclaration methodDeclaration) {
                 names.add(methodDeclaration.getNameAsString());
@@ -643,7 +576,8 @@ public final class JavaEntityExtractor {
             int startLine,
             int endLine,
             BlockContext context,
-            EntityKey key
+            EntityKey key,
+            Map<String, String> declaredFieldTypes
     ) {
         private static EntityDraft from(Node node, JavaEntityType entityType, String simpleName, String qualifiedName,
                                         Path sourceFile, String product, BlockContext context) {
@@ -658,8 +592,27 @@ public final class JavaEntityExtractor {
                     JavaEntityExtractor.startLine(node),
                     JavaEntityExtractor.endLine(node),
                     context,
-                    key
+                    key,
+                    declaredFieldType(node, entityType, product)
             );
+        }
+
+        private static Map<String, String> declaredFieldType(Node node, JavaEntityType type, String product) {
+            if (type != JavaEntityType.FIELD || !(node instanceof VariableDeclarator field)) {
+                return Map.of();
+            }
+            try {
+                var declaredType = field.getType().resolve();
+                while (declaredType.isArray()) {
+                    declaredType = declaredType.asArrayType().getComponentType();
+                }
+                if (declaredType.isReferenceType()) {
+                    return Map.of(product, declaredType.asReferenceType().getQualifiedName());
+                }
+            } catch (RuntimeException ignored) {
+                // A field with an unresolved type does not identify a provider.
+            }
+            return Map.of();
         }
 
         private String sortName() {
@@ -683,7 +636,8 @@ public final class JavaEntityExtractor {
                     context.groupId(),
                     context.signature(),
                     observedProducts,
-                    qualifiedName == null ? ResolutionStatus.UNRESOLVED : ResolutionStatus.RESOLVED_INTERNAL
+                    qualifiedName == null ? ResolutionStatus.UNRESOLVED : ResolutionStatus.RESOLVED_INTERNAL,
+                    declaredFieldTypes
             );
         }
 
@@ -691,8 +645,10 @@ public final class JavaEntityExtractor {
             TreeSet<String> products = new TreeSet<>(observedProducts);
             products.addAll(other.observedProducts);
             int mergedEndLine = Math.max(endLine, other.endLine);
+            Map<String, String> fieldTypes = new LinkedHashMap<>(declaredFieldTypes);
+            fieldTypes.putAll(other.declaredFieldTypes);
             return new EntityDraft(node, entityType, simpleName, qualifiedName, sourceFile,
-                    new ArrayList<>(products), startLine, mergedEndLine, context, key);
+                    new ArrayList<>(products), startLine, mergedEndLine, context, key, fieldTypes);
         }
     }
 
@@ -703,16 +659,19 @@ public final class JavaEntityExtractor {
             int sourceLine,
             JavaRelationType relationType,
             String targetText,
-            String targetDeclaringType,
-            int argumentCount,
-            String targetEntityName,
             EntityKey targetEntityKey,
             EntityKey sourceEntityKey,
-            boolean resolvedByParser,
+            boolean external,
             BlockContext context
     ) {
         private String sourceSortKey() {
             return sourceFile + ":" + sourceLine;
+        }
+
+        private int sourceColumn() {
+            Node location = node instanceof MethodCallExpr call ? call.getName()
+                    : node instanceof FieldAccessExpr field ? field.getName() : node;
+            return location.getBegin().map(position -> position.column).orElse(0);
         }
 
         private JavaRelation toRelation(String relationId, String sourceEntityId, String targetEntityId,
@@ -727,9 +686,10 @@ public final class JavaEntityExtractor {
                     sourceLine,
                     context.blockId(),
                     context.groupId(),
-                context.signature(),
-                observedProducts,
-                status
+                    context.signature(),
+                    observedProducts,
+                    status,
+                    sourceColumn()
             );
         }
 
@@ -737,14 +697,11 @@ public final class JavaEntityExtractor {
             TreeSet<String> products = new TreeSet<>(observedProducts);
             products.addAll(other.observedProducts);
             return new RelationDraft(node, sourceFile, new ArrayList<>(products), sourceLine,
-                    relationType, targetText, targetDeclaringType, argumentCount, targetEntityName,
+                    relationType, targetText,
                     targetEntityKey == null ? other.targetEntityKey : targetEntityKey,
                     sourceEntityKey == null ? other.sourceEntityKey : sourceEntityKey,
-                    resolvedByParser || other.resolvedByParser, context);
+                    external || other.external, context);
         }
-    }
-
-    private record ResolvedField(String name) {
     }
 
     private record EntityKey(Path sourceFile, JavaEntityType entityType, String declaringType,
@@ -763,7 +720,7 @@ public final class JavaEntityExtractor {
                         JavaEntityExtractor.startLine(declaration));
             }
             if (node instanceof VariableDeclarator variable
-                    && variable.findAncestor(FieldDeclaration.class).isPresent()) {
+                    && variable.getParentNode().filter(FieldDeclaration.class::isInstance).isPresent()) {
                 return forField(sourceFile, qualifiedName,
                         declaringTypeName(node.findCompilationUnit().orElseThrow(), variable),
                         variable.getNameAsString(), JavaEntityExtractor.startLine(variable));
@@ -796,18 +753,19 @@ public final class JavaEntityExtractor {
         }
     }
 
-    private record RelationKey(Path sourceFile, int sourceLine, JavaRelationType relationType, String targetText,
-                               String targetEntityName, EntityKey targetEntityKey, EntityKey sourceEntityKey,
-                               String blockId) {
+    private record RelationKey(Path sourceFile, int sourceLine, int sourceColumn, JavaRelationType relationType, String targetText,
+                               EntityKey targetEntityKey, EntityKey sourceEntityKey,
+                               boolean external, String blockId) {
         private static RelationKey from(RelationDraft draft) {
             return new RelationKey(
                     draft.sourceFile(),
                     draft.sourceLine(),
+                    draft.relationType() == JavaRelationType.TYPE_REFERENCE ? 0 : draft.sourceColumn(),
                     draft.relationType(),
                     draft.targetText(),
-                    draft.targetEntityName(),
                     draft.targetEntityKey(),
                     draft.sourceEntityKey(),
+                    draft.external(),
                     draft.context().blockId()
             );
         }
@@ -819,13 +777,6 @@ public final class JavaEntityExtractor {
     private static final class EntityIndex {
         private final Map<EntityKey, String> entityIdsByKey;
         private final Map<String, List<String>> typesByName = new HashMap<>();
-        private final Map<String, List<String>> methodsByName = new HashMap<>();
-        private final Map<String, List<String>> methodsByOwnerNameArity = new HashMap<>();
-        private final Map<String, List<String>> constructorsByType = new HashMap<>();
-        private final Map<String, List<String>> constructorsByTypeArity = new HashMap<>();
-        private final Map<String, List<String>> fieldsByName = new HashMap<>();
-        private final Map<String, EntityDraft> draftsById = new HashMap<>();
-
         private EntityIndex(Map<EntityKey, String> entityIdsByKey) {
             this.entityIdsByKey = entityIdsByKey;
         }
@@ -834,32 +785,9 @@ public final class JavaEntityExtractor {
             EntityIndex index = new EntityIndex(entityIdsByKey);
             for (EntityDraft draft : drafts) {
                 String id = entityIdsByKey.get(draft.key());
-                index.draftsById.put(id, draft);
                 if (draft.entityType() == JavaEntityType.CLASS || draft.entityType() == JavaEntityType.INTERFACE) {
                     index.add(index.typesByName, draft.simpleName(), id);
                     index.add(index.typesByName, draft.qualifiedName(), id);
-                } else if (draft.entityType() == JavaEntityType.METHOD) {
-                    index.add(index.methodsByName, draft.simpleName(), id);
-                    index.add(index.methodsByName, draft.key().declaringType() + "#" + draft.simpleName()
-                            + "(" + draft.key().parameterSignature() + ")", id);
-                    index.add(index.methodsByOwnerNameArity,
-                            methodKey(draft.key().declaringType(), draft.simpleName(),
-                                    parameterCount(draft.key().parameterSignature())), id);
-                    index.add(index.methodsByOwnerNameArity,
-                            methodKey(simpleName(draft.key().declaringType()), draft.simpleName(),
-                                    parameterCount(draft.key().parameterSignature())), id);
-                } else if (draft.entityType() == JavaEntityType.CONSTRUCTOR) {
-                    index.add(index.constructorsByType, simpleName(draft.key().declaringType()), id);
-                    index.add(index.constructorsByType, draft.key().declaringType(), id);
-                    index.add(index.constructorsByTypeArity,
-                            constructorKey(simpleName(draft.key().declaringType()),
-                                    parameterCount(draft.key().parameterSignature())), id);
-                    index.add(index.constructorsByTypeArity,
-                            constructorKey(draft.key().declaringType(),
-                                    parameterCount(draft.key().parameterSignature())), id);
-                } else if (draft.entityType() == JavaEntityType.FIELD) {
-                    index.add(index.fieldsByName, draft.simpleName(), id);
-                    index.add(index.fieldsByName, draft.key().declaringType() + "#" + draft.simpleName(), id);
                 }
             }
             return index;
@@ -871,7 +799,7 @@ public final class JavaEntityExtractor {
             }
         }
 
-        private TargetResolution resolve(RelationDraft draft, String sourceEntityId) {
+        private TargetResolution resolve(RelationDraft draft) {
             if (draft.targetEntityKey() != null) {
                 String id = entityIdsByKey.get(draft.targetEntityKey());
                 if (id != null) {
@@ -879,89 +807,16 @@ public final class JavaEntityExtractor {
                 }
             }
             return switch (draft.relationType()) {
-                case EXTENDS, IMPLEMENTS, TYPE_REFERENCE -> resolveType(draft);
-                case METHOD_CALL -> resolveMethod(draft);
-                case CONSTRUCTOR_CALL -> resolveConstructor(draft, sourceEntityId);
-                case FIELD_REFERENCE -> resolveField(draft, sourceEntityId);
+                case TYPE_REFERENCE -> resolveType(draft);
+                case EXTENDS, IMPLEMENTS, METHOD_CALL, CONSTRUCTOR_CALL, FIELD_REFERENCE ->
+                        new TargetResolution(null, draft.external() && draft.targetEntityKey() == null
+                                ? ResolutionStatus.RESOLVED_EXTERNAL : ResolutionStatus.UNRESOLVED);
                 case FIELD_ACCESS_LIFTED_TO_TYPE -> new TargetResolution(null, ResolutionStatus.UNRESOLVED);
             };
         }
 
         private TargetResolution resolveType(RelationDraft draft) {
             List<String> matches = lookup(typesByName, draft.targetText());
-            if (matches.size() == 1) {
-                return new TargetResolution(matches.get(0), ResolutionStatus.RESOLVED_INTERNAL);
-            }
-            if (matches.size() > 1) {
-                return new TargetResolution(null, ResolutionStatus.AMBIGUOUS);
-            }
-            return externalOrUnresolved(draft);
-        }
-
-        private TargetResolution resolveMethod(RelationDraft draft) {
-            if (draft.argumentCount() >= 0 && draft.targetDeclaringType() != null && !draft.targetDeclaringType().isBlank()) {
-                List<String> ownerMatches = lookup(methodsByOwnerNameArity,
-                        methodKey(draft.targetDeclaringType(), draft.targetText(), draft.argumentCount()));
-                if (ownerMatches.size() == 1) {
-                    return new TargetResolution(ownerMatches.get(0), ResolutionStatus.RESOLVED_INTERNAL);
-                }
-                if (ownerMatches.size() > 1) {
-                    return new TargetResolution(null, ResolutionStatus.AMBIGUOUS);
-                }
-                if (isKnownExternalTarget(draft.targetDeclaringType())) {
-                    return new TargetResolution(null, ResolutionStatus.RESOLVED_EXTERNAL);
-                }
-            }
-            List<String> matches = lookup(methodsByName, draft.targetText());
-            if (matches.size() == 1) {
-                return new TargetResolution(matches.get(0), ResolutionStatus.RESOLVED_INTERNAL);
-            }
-            if (matches.size() > 1) {
-                return new TargetResolution(null, ResolutionStatus.AMBIGUOUS);
-            }
-            return externalOrUnresolved(draft);
-        }
-
-        private TargetResolution resolveConstructor(RelationDraft draft, String sourceEntityId) {
-            String typeName = draft.targetText();
-            if (("this".equals(typeName) || "super".equals(typeName)) && sourceEntityId != null) {
-                EntityDraft source = draftsById.get(sourceEntityId);
-                if (source != null) {
-                    typeName = "this".equals(typeName) ? source.key().declaringType() : "";
-                }
-            }
-            List<String> matches = lookup(constructorsByType, typeName);
-            if (draft.argumentCount() >= 0) {
-                List<String> arityMatches = lookup(constructorsByTypeArity,
-                        constructorKey(typeName, draft.argumentCount()));
-                if (arityMatches.size() == 1) {
-                    return new TargetResolution(arityMatches.get(0), ResolutionStatus.RESOLVED_INTERNAL);
-                }
-                if (arityMatches.size() > 1) {
-                    return new TargetResolution(null, ResolutionStatus.AMBIGUOUS);
-                }
-            }
-            if (matches.size() == 1) {
-                return new TargetResolution(matches.get(0), ResolutionStatus.RESOLVED_INTERNAL);
-            }
-            if (matches.size() > 1) {
-                return new TargetResolution(null, ResolutionStatus.AMBIGUOUS);
-            }
-            return externalOrUnresolved(draft);
-        }
-
-        private TargetResolution resolveField(RelationDraft draft, String sourceEntityId) {
-            if (sourceEntityId != null) {
-                EntityDraft source = draftsById.get(sourceEntityId);
-                if (source != null) {
-                    List<String> declaringMatches = lookup(fieldsByName,
-                            source.key().declaringType() + "#" + draft.targetText());
-                    if (declaringMatches.size() == 1) {
-                        return new TargetResolution(declaringMatches.get(0), ResolutionStatus.RESOLVED_INTERNAL);
-                    }
-                }
-            }
-            List<String> matches = lookup(fieldsByName, draft.targetText());
             if (matches.size() == 1) {
                 return new TargetResolution(matches.get(0), ResolutionStatus.RESOLVED_INTERNAL);
             }
@@ -980,23 +835,8 @@ public final class JavaEntityExtractor {
             return map.getOrDefault(simpleName(canonical), List.of()).stream().distinct().sorted().toList();
         }
 
-        private static String methodKey(String ownerType, String methodName, int argumentCount) {
-            return canonicalTargetName(ownerType) + "#" + methodName + "#" + argumentCount;
-        }
-
-        private static String constructorKey(String typeName, int argumentCount) {
-            return canonicalTargetName(typeName) + "#" + argumentCount;
-        }
-
-        private static int parameterCount(String parameterSignature) {
-            if (parameterSignature == null || parameterSignature.isBlank()) {
-                return 0;
-            }
-            return parameterSignature.split(",", -1).length;
-        }
-
         private TargetResolution externalOrUnresolved(RelationDraft draft) {
-            if (draft.resolvedByParser() || isKnownExternalTarget(draft.targetText())) {
+            if (draft.external() || isKnownExternalTarget(draft.targetText())) {
                 return new TargetResolution(null, ResolutionStatus.RESOLVED_EXTERNAL);
             }
             return new TargetResolution(null, ResolutionStatus.UNRESOLVED);

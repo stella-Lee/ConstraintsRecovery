@@ -8,7 +8,6 @@ public final class DependencyKindClassifier {
 
     public static boolean isImplementationDependency(JavaRelationType type) {
         return type == JavaRelationType.FIELD_REFERENCE
-                || type == JavaRelationType.FIELD_ACCESS_LIFTED_TO_TYPE
                 || type == JavaRelationType.METHOD_CALL
                 || type == JavaRelationType.CONSTRUCTOR_CALL;
     }
@@ -19,7 +18,7 @@ public final class DependencyKindClassifier {
     }
 
     public static boolean isExcludedDependency(JavaRelationType type) {
-        return type == JavaRelationType.TYPE_REFERENCE;
+        return type == JavaRelationType.TYPE_REFERENCE || type == JavaRelationType.FIELD_ACCESS_LIFTED_TO_TYPE;
     }
 
     public static boolean isBlockGraphDependency(JavaRelationType type) {

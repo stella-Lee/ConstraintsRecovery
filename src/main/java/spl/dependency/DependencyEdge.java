@@ -23,8 +23,19 @@ public record DependencyEdge(
         ProductSignature targetSignature,
         boolean crossFile,
         List<String> observedProducts,
-        ResolutionStatus resolutionStatus
+        ResolutionStatus resolutionStatus,
+        int sourceColumn
 ) {
+    public DependencyEdge(String edgeId, String sourceEntityId, String targetEntityId, JavaRelationType relationType,
+            Path sourceFile, int sourceLine, Path targetFile, String sourceBlockId,
+            String sourceGroupId, ProductSignature sourceSignature, String targetGroupId,
+            ProductSignature targetSignature, boolean crossFile, List<String> observedProducts,
+            ResolutionStatus resolutionStatus) {
+        this(edgeId, sourceEntityId, targetEntityId, relationType, sourceFile, sourceLine, targetFile,
+            sourceBlockId, sourceGroupId, sourceSignature, targetGroupId, targetSignature, crossFile,
+            observedProducts, resolutionStatus, 0);
+    }
+
     public DependencyEdge {
         edgeId = Objects.requireNonNull(edgeId, "edgeId");
         sourceEntityId = Objects.requireNonNull(sourceEntityId, "sourceEntityId");

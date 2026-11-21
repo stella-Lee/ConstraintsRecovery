@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class SignatureProviderBundleEvidenceDetectorTest {
     @Test
-    void groupsOperationEvidenceBySourceAndProviderSignature() {
+    void keepsProviderIdentitiesSeparateWhenSignaturesMatch() {
         ProductSignature source = new ProductSignature("P1");
         ProductSignature provider = new ProductSignature("P1|P2");
         OperationProviderEvidence first = evidence("OPE-0001", "pkg.A.execute", "pkg.ProviderA", source, provider, 2);
@@ -20,11 +20,9 @@ class SignatureProviderBundleEvidenceDetectorTest {
                 new OperationProviderEvidenceResult(2, 2, List.of(first, second))
         );
 
-        assertEquals(1, result.evidence().size());
-        SignatureProviderBundleEvidence bundle = result.evidence().get(0);
-        assertEquals(2, bundle.operationCount());
-        assertEquals(2, bundle.providerCount());
-        assertEquals(5, bundle.supportingRelationCount());
+        assertEquals(2, result.evidence().size());
+        assertEquals(5, result.evidence().stream().mapToInt(SignatureProviderBundleEvidence::supportingRelationCount).sum());
+        assertEquals(List.of(1, 1), result.evidence().stream().map(SignatureProviderBundleEvidence::providerCount).toList());
     }
 
     @Test
@@ -52,7 +50,7 @@ class SignatureProviderBundleEvidenceDetectorTest {
                 "B1",
                 "E1",
                 operationKey,
-                "E2",
+                providerName,
                 providerName,
                 "CLASS",
                 "B2",

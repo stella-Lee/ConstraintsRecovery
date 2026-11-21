@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -54,6 +55,9 @@ class ProviderDataFlowEvidenceDetectorTest {
                 new ProductSignature("P1|P2"), file, 1);
         JavaEntity field = entity("E3", JavaEntityType.FIELD, "pkg.Client.provider", "B1", "G1",
                 new ProductSignature("P1"), file, 1);
+        field = new JavaEntity(field.entityId(), field.entityType(), field.simpleName(), field.qualifiedName(),
+                file, 1, 1, "B1", "G1", field.effectiveProductSignature(), List.of("P1"),
+                ResolutionStatus.RESOLVED_INTERNAL, Map.of("P1", "pkg.Provider"));
         JavaRelation relation = relation("R1", source.entityId(), field.entityId(),
                 JavaRelationType.FIELD_REFERENCE, file, 2);
 

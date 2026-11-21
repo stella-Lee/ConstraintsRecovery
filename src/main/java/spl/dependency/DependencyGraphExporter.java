@@ -38,7 +38,7 @@ public final class DependencyGraphExporter {
 
     private static void exportEdges(DependencyGraph graph, Path outputFile) throws IOException {
         StringBuilder builder = new StringBuilder();
-        builder.append("edge_id,source_entity_id,target_entity_id,relation_type,dependency_category,source_file,source_line,target_file,source_group_id,target_group_id,source_signature,target_signature,cross_file,observed_products,resolution_status\n");
+        builder.append("edge_id,source_entity_id,target_entity_id,relation_type,dependency_category,source_file,source_line,target_file,source_group_id,target_group_id,source_signature,target_signature,cross_file,observed_products,resolution_status,source_column\n");
         for (DependencyEdge edge : graph.edges()) {
             builder.append(csv(edge.edgeId())).append(',')
                     .append(csv(edge.sourceEntityId())).append(',')
@@ -54,7 +54,8 @@ public final class DependencyGraphExporter {
                     .append(csv(edge.targetSignature().toString())).append(',')
                     .append(edge.crossFile()).append(',')
                     .append(csv(String.join("|", edge.observedProducts()))).append(',')
-                    .append(csv(edge.resolutionStatus().name())).append('\n');
+                    .append(csv(edge.resolutionStatus().name())).append(',')
+                    .append(edge.sourceColumn()).append('\n');
         }
         Files.writeString(outputFile, builder.toString(), StandardCharsets.UTF_8);
     }

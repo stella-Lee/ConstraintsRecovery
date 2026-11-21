@@ -126,7 +126,9 @@ public final class SPLAnalyzerMain {
         new CompositionAwareDependencyExporter().export(compositionResult, outputDirectory);
         printCompositionAwareDependencySummary(compositionResult, outputDirectory);
         AuditReportResult auditResult = new AuditReportBuilder().build(requiresEvidence);
-        new AuditReportExporter().export(auditResult, outputDirectory);
+        AuditReportExporter auditExporter = new AuditReportExporter();
+        auditExporter.export(auditResult, outputDirectory);
+        auditExporter.exportExclusions(auditResult, entityResult.relations(), graph.unresolvedRelations(), outputDirectory);
         printAuditSummary(auditResult, outputDirectory);
         DisjunctiveImplementationEvidenceResult disjunctiveResult =
                 new BranchCompletionObligationDetector().detectBranchCompletionObligations(blocks);
@@ -415,14 +417,20 @@ public final class SPLAnalyzerMain {
         System.out.println();
         System.out.println("Audited requires-analysis evidence:");
         System.out.println("Audited entities   : " + result.entityClassifications().size());
-        System.out.println("Audited block pairs: " + result.blockPairs().size());
+        var strictPairs = result.blockPairs().stream().filter(pair -> pair.eligibleForRequires()).toList();
+        System.out.println("Direct relations examined: " + result.blockPairs().stream()
+                .mapToInt(pair -> pair.occurrenceCount()).sum());
+        System.out.println("Strict R relations       : " + strictPairs.stream()
+                .mapToInt(pair -> pair.occurrenceCount()).sum());
+        System.out.println("Strict R unit pairs      : " + strictPairs.size());
         System.out.println("Output files:");
         System.out.println("- " + outputDirectory.resolve("audited-entity-classification.csv"));
         System.out.println("- " + outputDirectory.resolve("requires_candidates.csv"));
         System.out.println("- " + outputDirectory.resolve("requires_candidate_evidence.csv"));
         System.out.println("- " + outputDirectory.resolve("requires_candidate_details.csv"));
+        System.out.println("- " + outputDirectory.resolve("requires_exclusions.csv"));
         System.out.println("Requires relevance hypotheses:");
-        Map<RequiresRelevance, Long> relevanceCounts = result.blockPairs().stream()
+        Map<RequiresRelevance, Long> relevanceCounts = strictPairs.stream()
                 .collect(Collectors.groupingBy(pair -> pair.requiresRelevance(), Collectors.counting()));
         for (RequiresRelevance relevance : RequiresRelevance.values()) {
             System.out.println("- " + relevance + ": " + relevanceCounts.getOrDefault(relevance, 0L));

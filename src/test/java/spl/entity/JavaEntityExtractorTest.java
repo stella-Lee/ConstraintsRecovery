@@ -5,6 +5,7 @@ import com.github.javaparser.ast.expr.MethodCallExpr;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import spl.ConditionalBlock;
+import spl.ProductSignature;
 import spl.ProductSignatureExtractor;
 import spl.grouping.SignatureBlockGrouper;
 import spl.grouping.SignatureGroup;
@@ -499,6 +500,37 @@ class JavaEntityExtractorTest {
         assertTrue(result.entities().stream().anyMatch(entity -> entity.simpleName().equals("BaseProduct")));
         assertTrue(result.entities().stream().anyMatch(entity -> entity.simpleName().equals("enterpriseOnly")));
         assertTrue(result.entities().stream().anyMatch(entity -> entity.simpleName().equals("shared")));
+    }
+
+    @Test
+    void resolvesSameArityOverloadsAndKeepsRepeatedCallsOnOneLine() throws Exception {
+        Path file = writeSample("""
+                class Demo {
+                    int value;
+                    Demo(int x) {}
+                    Demo(String x) {}
+                    void use(int value) {
+                        new Demo(1); new Demo("one");
+                        only(value); only(value);
+                        new Missing().only(1);
+                    }
+                    void only(int x) {}
+                }
+                """);
+        var result = new JavaEntityExtractor().extract(List.of(), List.of(file), new ProductSignature("P1|P2"));
+        var constructors = result.relations().stream()
+                .filter(relation -> relation.relationType() == JavaRelationType.CONSTRUCTOR_CALL
+                        && relation.sourceLine() == 6).toList();
+        assertEquals(List.of(3, 4), constructors.stream()
+                .map(relation -> entityById(result, relation.targetEntityId()).startLine()).sorted().toList());
+        var calls = result.relations().stream().filter(relation -> relation.relationType() == JavaRelationType.METHOD_CALL
+                && relation.sourceLine() == 7).toList();
+        assertEquals(2, calls.stream().map(JavaRelation::sourceColumn).distinct().count());
+        assertTrue(calls.stream().allMatch(relation -> relation.effectiveProductSignature().productIds().size() == 2));
+        assertFalse(result.relations().stream().anyMatch(relation -> relation.relationType() == JavaRelationType.FIELD_REFERENCE));
+        assertTrue(result.relations().stream().anyMatch(relation -> relation.sourceLine() == 8
+                && relation.relationType() == JavaRelationType.METHOD_CALL
+                && relation.resolutionStatus() == ResolutionStatus.UNRESOLVED));
     }
 
     private EntityExtractionResult extract(Path file) throws Exception {

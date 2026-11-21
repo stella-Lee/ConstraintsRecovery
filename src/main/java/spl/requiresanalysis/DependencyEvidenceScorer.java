@@ -52,7 +52,8 @@ public final class DependencyEvidenceScorer {
                 requiresRelevance(edge.relationType(), strength, relevance, reason),
                 reason,
                 edge.resolutionStatus(),
-                edge.observedProducts()
+                edge.observedProducts(),
+                edge.sourceColumn()
         );
     }
 

@@ -7,18 +7,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public final class OperationProviderEvidenceDetector {
-    private static final Pattern WRAPPEE_SUFFIX = Pattern.compile("(__wrappee__).*");
-    private static final Pattern HOOK_PREFIX = Pattern.compile("^hook\\d+(__wrappee__.*)?$");
-
     public OperationProviderEvidenceResult detect(ProviderDataFlowEvidenceResult providerDataFlowResult) {
         Map<String, Bucket> buckets = new LinkedHashMap<>();
         for (ProviderDataFlowEvidence evidence : providerDataFlowResult.evidence()) {
-            String operationKey = operationKey(evidence.sourceEntityName());
-            String key = operationKey + "|" + evidence.sourceSignature() + "|" + evidence.providerEntityId();
+            if (!"METHOD".equals(evidence.sourceEntityType()) && !"CONSTRUCTOR".equals(evidence.sourceEntityType())) {
+                continue;
+            }
+            String operationKey = evidence.sourceEntityName() + "@" + evidence.sourceEntityId();
+            String key = operationKey + "|" + evidence.sourceBlockId() + "|" + evidence.providerEntityId();
             buckets.computeIfAbsent(key, ignored -> new Bucket(operationKey)).add(evidence);
         }
 
@@ -37,25 +36,6 @@ public final class OperationProviderEvidenceDetector {
                 result.size(),
                 result
         );
-    }
-
-    private String operationKey(String qualifiedOperationName) {
-        String normalized = qualifiedOperationName == null ? "" : qualifiedOperationName.strip();
-        if (normalized.isBlank()) {
-            return "UNKNOWN_OPERATION";
-        }
-        int lastDot = normalized.lastIndexOf('.');
-        String simple = lastDot >= 0 ? normalized.substring(lastDot + 1) : normalized;
-        simple = WRAPPEE_SUFFIX.matcher(simple).replaceFirst("$1");
-        if (HOOK_PREFIX.matcher(simple).matches()) {
-            simple = "hook";
-        }
-        int declaringTypeEnd = normalized.lastIndexOf('.');
-        if (declaringTypeEnd < 0) {
-            return simple;
-        }
-        String declaringType = normalized.substring(0, declaringTypeEnd);
-        return declaringType + "." + simple;
     }
 
     private static final class Bucket {
@@ -87,7 +67,7 @@ public final class OperationProviderEvidenceDetector {
             return new OperationProviderEvidence(
                     id,
                     operationKey,
-                    operationName(operationKey),
+                    operationName(first.sourceEntityName()),
                     first.sourceSignature(),
                     joined(ProviderDataFlowEvidence::sourceGroupId),
                     joined(ProviderDataFlowEvidence::sourceBlockId),
