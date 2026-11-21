@@ -1,10 +1,6 @@
 target/
 original_p/**/bin/
 
-# Generated analysis output
-output/*
-!output/.gitkeep
-
 # Eclipse
 .classpath
 .project
