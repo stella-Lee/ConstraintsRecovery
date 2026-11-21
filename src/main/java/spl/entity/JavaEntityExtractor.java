@@ -59,15 +59,17 @@ public final class JavaEntityExtractor {
             Comparator.comparing((EntityDraft draft) -> draft.sourceFile().toString())
                     .thenComparingInt(EntityDraft::startLine)
                     .thenComparing(draft -> draft.entityType().name())
-                    .thenComparing(EntityDraft::sortName);
+                    .thenComparing(EntityDraft::sortName)
+                    .thenComparing(draft -> draft.key().parameterSignature());
     private static final Comparator<RelationDraft> RELATION_ORDER =
             Comparator.comparing((RelationDraft draft) -> draft.sourceFile().toString())
                     .thenComparingInt(RelationDraft::sourceLine)
                     .thenComparing(draft -> draft.relationType().name())
-                    .thenComparing(RelationDraft::sourceSortKey)
                     .thenComparing(RelationDraft::targetText)
                     .thenComparingInt(RelationDraft::sourceColumn)
-                    .thenComparing(draft -> draft.targetEntityKey() == null ? "" : draft.targetEntityKey().toString());
+                    .thenComparing(draft -> Objects.toString(draft.targetEntityKey(), ""))
+                    .thenComparing(draft -> Objects.toString(draft.sourceEntityKey(), ""))
+                    .thenComparing(RelationDraft::external);
     private static final Set<String> KNOWN_EXTERNAL_TYPES = Set.of(
             "Appendable", "ArrayList", "Boolean", "Byte", "Character", "Class", "Collection",
             "Comparable", "Dimension", "Double", "Exception", "Float", "HashMap", "HashSet",
@@ -326,7 +328,10 @@ public final class JavaEntityExtractor {
         boolean external = declaration != null && declaration.toAst().isEmpty()
                 && !(declaration instanceof ResolvedConstructorDeclaration constructor
                 && constructor.declaringType().toAst().isPresent());
-        relationDrafts.add(new RelationDraft(node, sourceFile, List.of(product), startLine(node), relationType,
+        Node location = node instanceof MethodCallExpr call ? call.getName()
+                : node instanceof FieldAccessExpr field ? field.getName() : node;
+        int column = location.getBegin().map(position -> position.column).orElse(0);
+        relationDrafts.add(new RelationDraft(sourceFile, List.of(product), startLine(node), column, relationType,
                 targetText, targetKey, sourceEntityKeyFor(unit, sourceFile, node), external, context));
     }
 
@@ -567,7 +572,6 @@ public final class JavaEntityExtractor {
     }
 
     private record EntityDraft(
-            Node node,
             JavaEntityType entityType,
             String simpleName,
             String qualifiedName,
@@ -583,7 +587,6 @@ public final class JavaEntityExtractor {
                                         Path sourceFile, String product, BlockContext context) {
             EntityKey key = EntityKey.from(sourceFile, entityType, simpleName, qualifiedName, node);
             return new EntityDraft(
-                    node,
                     entityType,
                     simpleName,
                     qualifiedName,
@@ -619,10 +622,6 @@ public final class JavaEntityExtractor {
             return qualifiedName == null ? simpleName : qualifiedName;
         }
 
-        private String stableName() {
-            return qualifiedName == null ? simpleName : qualifiedName;
-        }
-
         private JavaEntity toEntity(String entityId) {
             return new JavaEntity(
                     entityId,
@@ -647,16 +646,16 @@ public final class JavaEntityExtractor {
             int mergedEndLine = Math.max(endLine, other.endLine);
             Map<String, String> fieldTypes = new LinkedHashMap<>(declaredFieldTypes);
             fieldTypes.putAll(other.declaredFieldTypes);
-            return new EntityDraft(node, entityType, simpleName, qualifiedName, sourceFile,
+            return new EntityDraft(entityType, simpleName, qualifiedName, sourceFile,
                     new ArrayList<>(products), startLine, mergedEndLine, context, key, fieldTypes);
         }
     }
 
     private record RelationDraft(
-            Node node,
             Path sourceFile,
             List<String> observedProducts,
             int sourceLine,
+            int sourceColumn,
             JavaRelationType relationType,
             String targetText,
             EntityKey targetEntityKey,
@@ -664,16 +663,6 @@ public final class JavaEntityExtractor {
             boolean external,
             BlockContext context
     ) {
-        private String sourceSortKey() {
-            return sourceFile + ":" + sourceLine;
-        }
-
-        private int sourceColumn() {
-            Node location = node instanceof MethodCallExpr call ? call.getName()
-                    : node instanceof FieldAccessExpr field ? field.getName() : node;
-            return location.getBegin().map(position -> position.column).orElse(0);
-        }
-
         private JavaRelation toRelation(String relationId, String sourceEntityId, String targetEntityId,
                                         ResolutionStatus status) {
             return new JavaRelation(
@@ -696,7 +685,7 @@ public final class JavaEntityExtractor {
         private RelationDraft merge(RelationDraft other) {
             TreeSet<String> products = new TreeSet<>(observedProducts);
             products.addAll(other.observedProducts);
-            return new RelationDraft(node, sourceFile, new ArrayList<>(products), sourceLine,
+            return new RelationDraft(sourceFile, new ArrayList<>(products), sourceLine, sourceColumn,
                     relationType, targetText,
                     targetEntityKey == null ? other.targetEntityKey : targetEntityKey,
                     sourceEntityKey == null ? other.sourceEntityKey : sourceEntityKey,
@@ -811,7 +800,6 @@ public final class JavaEntityExtractor {
                 case EXTENDS, IMPLEMENTS, METHOD_CALL, CONSTRUCTOR_CALL, FIELD_REFERENCE ->
                         new TargetResolution(null, draft.external() && draft.targetEntityKey() == null
                                 ? ResolutionStatus.RESOLVED_EXTERNAL : ResolutionStatus.UNRESOLVED);
-                case FIELD_ACCESS_LIFTED_TO_TYPE -> new TargetResolution(null, ResolutionStatus.UNRESOLVED);
             };
         }
 

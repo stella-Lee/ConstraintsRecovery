@@ -26,16 +26,7 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 public final class AuditReportBuilder {
-    private final RequiresCandidateConfig candidateConfig;
     private final Map<java.nio.file.Path, List<String>> sourceLineCache = new HashMap<>();
-
-    public AuditReportBuilder() {
-        this(RequiresCandidateConfig.defaults());
-    }
-
-    public AuditReportBuilder(RequiresCandidateConfig candidateConfig) {
-        this.candidateConfig = Objects.requireNonNull(candidateConfig, "candidateConfig");
-    }
 
     public AuditReportResult build(RequiresEvidenceResult result) {
         Set<String> universe = result.blocks().stream()
@@ -241,7 +232,7 @@ public final class AuditReportBuilder {
                     targetOutermost,
                     !sameAsset,
                     status == RequiresCandidateStatus.ELIGIBLE_REQUIRES_EVIDENCE,
-                    status == RequiresCandidateStatus.MANDATORY_SOURCE_TO_VARIABLE_TARGET,
+                    false,
                     join(sourceProducts),
                     join(targetProducts),
                     signatureRelation,
@@ -318,15 +309,6 @@ public final class AuditReportBuilder {
                 .toList();
     }
 
-    private boolean syntacticallyContained(ConditionalBlock source, ConditionalBlock target) {
-        Set<String> sourceProducts = products(source);
-        Set<String> targetProducts = products(target);
-        if (sourceProducts.isEmpty() || targetProducts.isEmpty()) {
-            return false;
-        }
-        return targetProducts.size() == 1 && sourceProducts.containsAll(targetProducts);
-    }
-
     private record ImplementationUnit(String id, Path file, Set<String> products, boolean outermost) {}
 
     private record Selection(ImplementationUnit source, ImplementationUnit target, ProductSetRelation relation,
@@ -371,13 +353,6 @@ public final class AuditReportBuilder {
 
     private boolean isOutermost(ConditionalBlock block) {
         return block == null || block.nestingDepth() == 0;
-    }
-
-    private String assetId(ConditionalBlock block) {
-        if (block == null || block.filePath() == null || block.filePath().getFileName() == null) {
-            return "";
-        }
-        return block.filePath().getFileName().toString();
     }
 
     private RequiresCandidateCategory candidateCategory(RequiresCandidateStatus status) {
@@ -463,37 +438,11 @@ public final class AuditReportBuilder {
                 .toList();
     }
 
-    private RequiresCandidateCategory candidateCategory(EvidenceCounts counts, boolean commonSource,
-                                                        boolean commonTarget, boolean syntacticallyTrivial) {
-        if (commonSource && !commonTarget && !syntacticallyTrivial) {
-            return RequiresCandidateCategory.COMMON_TO_VARIABLE_ANOMALY;
-        }
-        if (commonTarget || syntacticallyTrivial) {
-            return RequiresCandidateCategory.REJECTED_TRIVIAL_OR_INVALID;
-        }
-        if (commonSource) {
-            return RequiresCandidateCategory.COMMON_TO_VARIABLE_ANOMALY;
-        }
-        boolean implementation = counts.methodCallCount() > 0 || counts.constructorCallCount() > 0;
-        boolean structural = counts.extendsCount() > 0 || counts.implementsCount() > 0;
-        boolean field = counts.fieldReferenceCount() > 0;
-        int families = (implementation ? 1 : 0) + (structural ? 1 : 0) + (field ? 1 : 0);
-        if (structural || counts.constructorCallCount() > 0 || families > 1) {
-            return RequiresCandidateCategory.HIGH_CONFIDENCE_REQUIRES;
-        }
-        if (counts.methodCallCount() > 0
-                || (field && counts.distinctSourceEntityCount() >= candidateConfig.repeatedFieldReferenceSourceEntities())) {
-            return RequiresCandidateCategory.MEDIUM_CONFIDENCE_REQUIRES;
-        }
-        return RequiresCandidateCategory.LOW_CONFIDENCE_REQUIRES;
-    }
-
     private EvidenceCounts evidenceCounts(List<DependencyEvidence> rows) {
         return new EvidenceCounts(
                 (int) rows.stream().filter(row -> row.relationType() == JavaRelationType.METHOD_CALL).count(),
                 (int) rows.stream().filter(row -> row.relationType() == JavaRelationType.CONSTRUCTOR_CALL).count(),
-                (int) rows.stream().filter(row -> row.relationType() == JavaRelationType.FIELD_REFERENCE
-                        || row.relationType() == JavaRelationType.FIELD_ACCESS_LIFTED_TO_TYPE).count(),
+                (int) rows.stream().filter(row -> row.relationType() == JavaRelationType.FIELD_REFERENCE).count(),
                 (int) rows.stream().filter(row -> row.relationType() == JavaRelationType.EXTENDS).count(),
                 (int) rows.stream().filter(row -> row.relationType() == JavaRelationType.IMPLEMENTS).count(),
                 (int) rows.stream().map(DependencyEvidence::sourceEntityId).filter(id -> !id.isBlank()).distinct().count(),
@@ -618,15 +567,10 @@ public final class AuditReportBuilder {
         String specificity = featureSpecificity(targetPresenceScope, blockById, universe);
         boolean declaredInsideTargetFragment = entity.containingBlockId().equals(row.targetBlockId());
         boolean compile = row.relationType() == JavaRelationType.CONSTRUCTOR_CALL
-                || row.relationType() == JavaRelationType.TYPE_REFERENCE
-                || row.relationType() == JavaRelationType.EXTENDS
-                || row.relationType() == JavaRelationType.IMPLEMENTS
-                || row.relationType() == JavaRelationType.FIELD_REFERENCE
-                || row.relationType() == JavaRelationType.FIELD_ACCESS_LIFTED_TO_TYPE;
+                || row.relationType() == JavaRelationType.FIELD_REFERENCE;
         boolean runtime = row.relationType() == JavaRelationType.METHOD_CALL
                 || row.relationType() == JavaRelationType.CONSTRUCTOR_CALL
-                || row.relationType() == JavaRelationType.FIELD_REFERENCE
-                || row.relationType() == JavaRelationType.FIELD_ACCESS_LIFTED_TO_TYPE;
+                || row.relationType() == JavaRelationType.FIELD_REFERENCE;
         String reason = String.join("|", List.of(
                 variabilitySpecificTarget(specificity) ? "TARGET_VARIABILITY_SPECIFIC" : "TARGET_" + specificity,
                 declaredInsideTargetFragment ? "DECLARED_IN_TARGET_FRAGMENT" : "DECLARED_IN_ENCLOSING_FRAGMENT",
@@ -699,7 +643,6 @@ public final class AuditReportBuilder {
 
     private int relationRank(JavaRelationType type) {
         return switch (type) {
-            case FIELD_ACCESS_LIFTED_TO_TYPE -> 70;
             case CONSTRUCTOR_CALL -> 60;
             case FIELD_REFERENCE -> 50;
             case METHOD_CALL -> 40;
@@ -896,14 +839,11 @@ public final class AuditReportBuilder {
 
     private EvidenceLevel structuralStrength(List<DependencyEvidence> rows) {
         boolean strongKind = rows.stream().anyMatch(row -> row.relationType() == JavaRelationType.METHOD_CALL
-                || row.relationType() == JavaRelationType.CONSTRUCTOR_CALL
-                || row.relationType() == JavaRelationType.FIELD_ACCESS_LIFTED_TO_TYPE);
-        boolean structuralKind = rows.stream()
-                .anyMatch(row -> DependencyKindClassifier.isStructuralDependency(row.relationType()));
+                || row.relationType() == JavaRelationType.CONSTRUCTOR_CALL);
         if (strongKind && rows.size() >= 2) {
             return EvidenceLevel.HIGH;
         }
-        if (strongKind || structuralKind || rows.size() >= 2) {
+        if (strongKind || rows.size() >= 2) {
             return EvidenceLevel.MEDIUM;
         }
         return EvidenceLevel.LOW;
@@ -1038,48 +978,6 @@ public final class AuditReportBuilder {
             categories.add(InterpretationCategory.INSUFFICIENT_EVIDENCE);
         }
         return categories;
-    }
-
-    private RequiresRelevance requiresRelevance(RequiresCandidateCategory category) {
-        return switch (category) {
-            case HIGH_CONFIDENCE_REQUIRES -> RequiresRelevance.HIGH;
-            case MEDIUM_CONFIDENCE_REQUIRES -> RequiresRelevance.MEDIUM;
-            case LOW_CONFIDENCE_REQUIRES, COMMON_TO_VARIABLE_ANOMALY, REJECTED_TRIVIAL_OR_INVALID -> RequiresRelevance.LOW;
-        };
-    }
-
-    private RequiresRelevance requiresRelevance(EvidenceLevel structural, EvidenceLevel domain,
-                                                EvidenceLevel direction, EvidenceLevel commonContext,
-                                                Set<InterpretationCategory> categories,
-                                                ProductSetRelation productSetRelation,
-                                                TargetLocalization localization) {
-        if (categories.contains(InterpretationCategory.INTRA_BLOCK)
-                || categories.contains(InterpretationCategory.INFRASTRUCTURE_ONLY)) {
-            return RequiresRelevance.LOW;
-        }
-        if (localization.featureSpecificTargetEntities().isBlank()
-                || "COMMON_TARGET".equals(localization.primaryTargetFeatureSpecificity())) {
-            return RequiresRelevance.LOW;
-        }
-        if (isStructuralEvidence(categories) && !categories.contains(InterpretationCategory.REQUIRES_PLAUSIBLE)) {
-            return structural == EvidenceLevel.MEDIUM
-                    && direction == EvidenceLevel.HIGH
-                    && productSetRelation == ProductSetRelation.SOURCE_SUBSET_OF_TARGET
-                    && !categories.contains(InterpretationCategory.SAME_FEATURE_PLAUSIBLE)
-                    ? RequiresRelevance.MEDIUM
-                    : RequiresRelevance.LOW;
-        }
-        if (structural == EvidenceLevel.HIGH && domain == EvidenceLevel.HIGH
-                && direction == EvidenceLevel.HIGH && commonContext != EvidenceLevel.HIGH
-                && productSetRelation == ProductSetRelation.SOURCE_SUBSET_OF_TARGET
-                && !categories.contains(InterpretationCategory.SAME_FEATURE_PLAUSIBLE)) {
-            return RequiresRelevance.HIGH;
-        }
-        if (domain != EvidenceLevel.LOW && structural != EvidenceLevel.LOW
-                && !categories.contains(InterpretationCategory.INSUFFICIENT_EVIDENCE)) {
-            return RequiresRelevance.MEDIUM;
-        }
-        return RequiresRelevance.LOW;
     }
 
     private Set<InterpretationCategory> refineCommonOnlyCategories(Set<InterpretationCategory> categories,
@@ -1218,11 +1116,6 @@ public final class AuditReportBuilder {
 
     private boolean hasOrdinaryImplementationDependency(List<DependencyEvidence> rows) {
         return rows.stream().anyMatch(row -> DependencyKindClassifier.isImplementationDependency(row.relationType()));
-    }
-
-    private boolean isStructuralEvidence(Set<InterpretationCategory> categories) {
-        return categories.contains(InterpretationCategory.STRUCTURAL_EXTENDS)
-                || categories.contains(InterpretationCategory.STRUCTURAL_IMPLEMENTS);
     }
 
     private EntityRole legacyEquivalent(SemanticRole semantic, EvidenceLevel domain) {

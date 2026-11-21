@@ -258,91 +258,14 @@ public final class AuditReportExporter {
             case SINGLE_PRODUCT_SOURCE -> "SINGLE_PRODUCT_SOURCE";
             case SINGLE_PRODUCT_TARGET -> "SINGLE_PRODUCT_TARGET";
             case COMMON_TARGET_DEPENDENCY -> "TARGET_PRESENT_IN_ALL_PRODUCTS";
-            case INTRA_ASSET_ROOT_DEPENDENCY -> "SAME_ASSET_ROOT_CONTEXT";
             case INTRA_ASSET_MANDATORY_TARGET -> "TARGET_IS_SAME_ASSET_OUTERMOST_BLOCK";
-            case MANDATORY_SOURCE_TO_VARIABLE_TARGET -> "OUTERMOST_SOURCE_DEPENDS_ON_NESTED_TARGET";
             case SAME_SIGNATURE_DIRECTED_DEPENDENCY -> "DIRECTION_NOT_IDENTIFIABLE";
-            case INTRA_ENTITY, SELF_DEPENDENCY -> "SELF_DEPENDENCY";
-            case INTRA_CLASS -> "INTRA_CLASS";
             case INTRA_BLOCK -> "INTRA_BLOCK";
             case SIGNATURE_INCONSISTENT -> "SIGNATURE_INCONSISTENT";
-            case UNRESOLVED_ENTITY -> "UNRESOLVED_ENTITY";
-            case INVALID_DEPENDENCY_KIND -> "INVALID_DEPENDENCY_KIND";
-            case UNRESOLVED_BLOCK_SCOPE -> "UNRESOLVED_BLOCK_SCOPE";
         };
     }
 
-    private String evidenceLocation(AuditedBlockPair pair) {
-        BlockLocation source = BlockLocation.fromSourceLocation(pair.primaryEvidenceSourceFile(),
-                pair.primaryEvidenceSourceLine());
-        if (source == null) {
-            source = BlockLocation.fromBlockId(pair.sourceBlockId());
-        }
-        BlockLocation target = BlockLocation.fromDeclaration(pair.primaryTargetDeclaration());
-        if (target == null) {
-            target = BlockLocation.fromBlockId(pair.targetBlockId());
-        }
-        if (source == null && target == null) {
-            return "";
-        }
-        if (source == null) {
-            return target.format();
-        }
-        if (target == null) {
-            return source.format();
-        }
-        if (source.fileName().equals(target.fileName())) {
-            return source.format() + " -> " + target.lineRange();
-        }
-        return source.format() + " -> " + target.format();
-    }
-
-    private String judgmentReason(AuditedBlockPair pair, String relationType, String sourceFeature, String targetFeature) {
-        List<String> reasons = new ArrayList<>();
-        if (pair.primarySelectionReason().contains("DIRECTLY_REFERENCED_BY_SOURCE_BLOCK")
-                && !pair.featureSpecificTargetEntities().isBlank()) {
-            reasons.add("DIRECT_FEATURE_DEPENDENCY");
-        }
-        if (pair.primarySelectionReason().contains("COMPILE_TIME_NECESSITY")) {
-            reasons.add("COMPILE_TIME_NECESSITY");
-        }
-        if (pair.productSetRelation().name().equals("SOURCE_SUBSET_OF_TARGET")) {
-            reasons.add("SOURCE_SET_SUBSET");
-        }
-        if ("VARIABILITY_SPECIFIC_TARGET".equals(pair.primaryTargetFeatureSpecificity())
-                || "SINGLE_PRODUCT_TARGET".equals(pair.primaryTargetFeatureSpecificity())) {
-            reasons.add("TARGET_FEATURE_RESOLVED");
-        } else {
-            reasons.add("TARGET_FEATURE_UNRESOLVED");
-        }
-        if ("COMMON_TARGET".equals(pair.primaryTargetFeatureSpecificity())) {
-            reasons.add("COMMON_TARGET_ONLY");
-        }
-        if ("UNRESOLVED".equals(sourceFeature)) {
-            reasons.add("SOURCE_FEATURE_UNRESOLVED");
-        }
-        if ("UNRESOLVED".equals(targetFeature)) {
-            reasons.add("TARGET_FEATURE_UNRESOLVED");
-        }
-        if (pair.resolutionConfidence().name().equals("LOW") || pair.resolutionConfidence().name().equals("UNKNOWN")) {
-            reasons.add("AMBIGUOUS_RESOLUTION");
-        }
-        if (pair.primaryEvidenceRelationId().isBlank() || pair.featureSpecificTargetEntities().isBlank()) {
-            reasons.add("NO_DIRECT_DEPENDENCY");
-        }
-        if ("UNRESOLVED".equals(relationType)) {
-            reasons.add("FEATURE_BOUNDARY_AMBIGUOUS");
-            reasons.add("INSUFFICIENT_SEMANTIC_DISTINCTION");
-            reasons.add("RELATION_TYPE_UNRESOLVED");
-        }
-        return reasons.stream().distinct().collect(Collectors.joining("|"));
-    }
-
     private void validatePrimaryEvidence(AuditedBlockPair pair) {
-        if (pair.candidateStatus() == RequiresCandidateStatus.INVALID_DEPENDENCY_KIND
-                || pair.candidateStatus() == RequiresCandidateStatus.UNRESOLVED_ENTITY) {
-            return;
-        }
         String kind = pair.dependencyKind();
         if (kind == null || kind.isBlank()) {
             if (pair.requiresRelevance() == RequiresRelevance.HIGH) {
@@ -352,15 +275,7 @@ public final class AuditReportExporter {
             return;
         }
         boolean valid = switch (kind) {
-            case "EXTENDS" -> "CLASS".equals(pair.sourceEntityType())
-                    && "CLASS".equals(pair.targetEntityType());
-            case "IMPLEMENTS" -> "CLASS".equals(pair.sourceEntityType())
-                    && "INTERFACE".equals(pair.targetEntityType());
             case "FIELD_REFERENCE" -> "FIELD".equals(pair.targetEntityType())
-                    && ("METHOD".equals(pair.sourceEntityType())
-                    || "CONSTRUCTOR".equals(pair.sourceEntityType()));
-            case "FIELD_ACCESS_LIFTED_TO_TYPE" -> ("CLASS".equals(pair.targetEntityType())
-                    || "INTERFACE".equals(pair.targetEntityType()))
                     && ("METHOD".equals(pair.sourceEntityType())
                     || "CONSTRUCTOR".equals(pair.sourceEntityType()));
             case "METHOD_CALL" -> "METHOD".equals(pair.targetEntityType())
@@ -369,9 +284,6 @@ public final class AuditReportExporter {
             case "CONSTRUCTOR_CALL" -> "CONSTRUCTOR".equals(pair.targetEntityType())
                     && ("METHOD".equals(pair.sourceEntityType())
                     || "CONSTRUCTOR".equals(pair.sourceEntityType()));
-            case "TYPE_REFERENCE" -> !pair.sourceEntityType().isBlank()
-                    && ("CLASS".equals(pair.targetEntityType())
-                    || "INTERFACE".equals(pair.targetEntityType()));
             default -> false;
         };
         if (!valid) {
@@ -401,48 +313,5 @@ public final class AuditReportExporter {
             return "\"" + value.replace("\"", "\"\"") + "\"";
         }
         return value;
-    }
-
-    private record BlockLocation(String fileName, String lineRange) {
-        static BlockLocation fromBlockId(String blockId) {
-            if (blockId == null || blockId.isBlank()) {
-                return null;
-            }
-            int lastSeparator = Math.max(blockId.lastIndexOf('\\'), blockId.lastIndexOf('/'));
-            String tail = lastSeparator >= 0 ? blockId.substring(lastSeparator + 1) : blockId;
-            String[] parts = tail.split(":");
-            if (parts.length < 3) {
-                return null;
-            }
-            return new BlockLocation(parts[0], parts[2]);
-        }
-
-        static BlockLocation fromDeclaration(String declaration) {
-            if (declaration == null || declaration.isBlank()) {
-                return null;
-            }
-            int at = declaration.lastIndexOf('@');
-            if (at < 0 || at + 1 >= declaration.length()) {
-                return null;
-            }
-            String location = declaration.substring(at + 1);
-            int lineSeparator = location.lastIndexOf(':');
-            if (lineSeparator < 0 || lineSeparator + 1 >= location.length()) {
-                return null;
-            }
-            Path file = Path.of(location.substring(0, lineSeparator));
-            return new BlockLocation(file.getFileName().toString(), location.substring(lineSeparator + 1));
-        }
-
-        static BlockLocation fromSourceLocation(String sourceFile, int line) {
-            if (sourceFile == null || sourceFile.isBlank() || line < 0) {
-                return null;
-            }
-            return new BlockLocation(Path.of(sourceFile).getFileName().toString(), Integer.toString(line));
-        }
-
-        String format() {
-            return fileName + ":" + lineRange;
-        }
     }
 }

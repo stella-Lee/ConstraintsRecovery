@@ -17,10 +17,6 @@ public final class DependencyKindClassifier {
                 || type == JavaRelationType.IMPLEMENTS;
     }
 
-    public static boolean isExcludedDependency(JavaRelationType type) {
-        return type == JavaRelationType.TYPE_REFERENCE || type == JavaRelationType.FIELD_ACCESS_LIFTED_TO_TYPE;
-    }
-
     public static boolean isBlockGraphDependency(JavaRelationType type) {
         return isImplementationDependency(type) || isStructuralDependency(type);
     }
