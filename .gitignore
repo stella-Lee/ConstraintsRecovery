@@ -1,4 +1,5 @@
 target/
+original_p/**/bin/
 
 # Generated analysis output
 output/*
