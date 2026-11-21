@@ -20,7 +20,8 @@ public record JavaEntity(
         ProductSignature effectiveProductSignature,
         List<String> observedProducts,
         ResolutionStatus resolutionStatus,
-        Map<String, String> declaredFieldTypes
+        Map<String, String> declaredFieldTypes,
+        String declaringTypeName
 ) {
     public JavaEntity(String entityId, JavaEntityType entityType, String simpleName, String qualifiedName,
                       Path sourceFile, int startLine, int endLine, String containingBlockId,
@@ -28,6 +29,24 @@ public record JavaEntity(
                       List<String> observedProducts, ResolutionStatus resolutionStatus) {
         this(entityId, entityType, simpleName, qualifiedName, sourceFile, startLine, endLine, containingBlockId,
                 signatureGroupId, effectiveProductSignature, observedProducts, resolutionStatus, Map.of());
+    }
+
+    public JavaEntity(String entityId, JavaEntityType entityType, String simpleName, String qualifiedName,
+                      Path sourceFile, int startLine, int endLine, String containingBlockId,
+                      String signatureGroupId, ProductSignature effectiveProductSignature,
+                      List<String> observedProducts, ResolutionStatus resolutionStatus,
+                      Map<String, String> declaredFieldTypes) {
+        this(entityId, entityType, simpleName, qualifiedName, sourceFile, startLine, endLine, containingBlockId,
+                signatureGroupId, effectiveProductSignature, observedProducts, resolutionStatus, declaredFieldTypes,
+                memberNamePrefix(entityType, qualifiedName));
+    }
+
+    private static String memberNamePrefix(JavaEntityType type, String qualifiedName) {
+        if (type == JavaEntityType.CLASS || type == JavaEntityType.INTERFACE || qualifiedName == null) {
+            return "";
+        }
+        int separator = qualifiedName.lastIndexOf('.');
+        return separator < 0 ? "" : qualifiedName.substring(0, separator);
     }
 
     public JavaEntity {
@@ -41,5 +60,6 @@ public record JavaEntity(
         observedProducts = List.copyOf(Objects.requireNonNull(observedProducts, "observedProducts"));
         resolutionStatus = Objects.requireNonNull(resolutionStatus, "resolutionStatus");
         declaredFieldTypes = Map.copyOf(declaredFieldTypes);
+        declaringTypeName = Objects.requireNonNull(declaringTypeName, "declaringTypeName");
     }
 }

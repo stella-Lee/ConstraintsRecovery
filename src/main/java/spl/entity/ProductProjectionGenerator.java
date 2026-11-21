@@ -5,7 +5,9 @@ import spl.ProductSignature;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -24,6 +26,7 @@ public final class ProductProjectionGenerator {
         String[] lines = source.split("\\R", -1);
         int lineCount = source.endsWith("\n") || source.endsWith("\r") ? lines.length - 1 : lines.length;
         List<String> projectedLines = new ArrayList<>(lineCount);
+        Map<Integer, Integer> restoredColumnOffsets = new HashMap<>();
         ArrayDeque<Frame> stack = new ArrayDeque<>();
 
         for (int index = 0; index < lineCount; index++) {
@@ -33,11 +36,16 @@ public final class ProductProjectionGenerator {
                 handleDirective(matcher.group(1), matcher.group(2).trim(), product, stack);
                 projectedLines.add("");
             } else {
-                projectedLines.add(projectLine(line, isActive(stack)));
+                String projected = projectLine(line, isActive(stack));
+                projectedLines.add(projected);
+                if (!projected.isEmpty() && projected.length() < line.length()) {
+                    restoredColumnOffsets.put(index + 1, line.length() - projected.length());
+                }
             }
         }
 
-        return new ProductProjection(sourceFile, product, String.join(System.lineSeparator(), projectedLines), lineCount);
+        return new ProductProjection(sourceFile, product, String.join(System.lineSeparator(), projectedLines),
+                lineCount, restoredColumnOffsets);
     }
 
     private static String projectLine(String line, boolean active) {

@@ -132,9 +132,7 @@ public final class ProviderDataFlowEvidenceDetector {
         if (target.entityType() != expected) {
             return null;
         }
-        String name = displayName(target);
-        int separator = name.lastIndexOf('.');
-        return separator < 0 ? null : providerIndex.find(name.substring(0, separator), product, target);
+        return providerIndex.find(target.declaringTypeName(), product, target);
     }
 
     private ProviderDataFlowEvidence toEvidence(String id, String kind, JavaRelation relation, JavaEntity source,

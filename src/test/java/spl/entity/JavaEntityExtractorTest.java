@@ -533,6 +533,82 @@ class JavaEntityExtractorTest {
                 && relation.resolutionStatus() == ResolutionStatus.UNRESOLVED));
     }
 
+    @Test
+    void namesAnonymousMethodsInEnclosingOrderAndPreservesNamedTypes() throws Exception {
+        Path file = writeSample("""
+                //#if P1|P2
+                package demo;
+                class Outer {
+                    void ordinary() {}
+                    static class Nested { void run() {} }
+                    void host() {
+                        Runnable action = new Runnable() {
+                            public void run() {}
+                        };
+                    }
+                }
+                //#endif
+                """);
+        var result = extract(file);
+        var callback = result.entities().stream().filter(entity -> entity.startLine() == 8).findFirst().orElseThrow();
+        assertEquals("run", callback.simpleName());
+        assertEquals("demo.Outer.host.<anonymous@7:27>.run", callback.qualifiedName());
+        assertEquals("demo.Outer.host.<anonymous@7:27>", callback.declaringTypeName());
+        assertEquals(List.of("P1", "P2"), callback.observedProducts());
+        assertTrue(result.entities().stream().anyMatch(entity -> "demo.Outer.ordinary".equals(entity.qualifiedName())
+                && "demo.Outer".equals(entity.declaringTypeName())));
+        assertTrue(result.entities().stream().anyMatch(entity -> "demo.Outer.Nested.run".equals(entity.qualifiedName())
+                && "demo.Outer.Nested".equals(entity.declaringTypeName())));
+    }
+
+    @Test
+    void distinguishesSameLineAnonymousClassesAndOverloadsUsingOriginalPositions() throws Exception {
+        Path file = writeSample("""
+                //#if P1|P2
+                class Outer {
+                    void host() {
+                        //#if P1
+                        int ignored = 0;
+                        //#endif
+                        //@Runnable first = new Runnable() { public void run() {} public void run(int i) {} }; Runnable second = new Runnable() { public void run() {} };
+                    }
+                }
+                //#endif
+                """);
+        String originalLine = Files.readAllLines(file).get(6);
+        int firstColumn = originalLine.indexOf("new Runnable") + 1;
+        int secondColumn = originalLine.lastIndexOf("new Runnable") + 1;
+        var callbacks = extract(file).entities().stream().filter(entity -> entity.simpleName().equals("run")).toList();
+        assertEquals(3, callbacks.size());
+        assertEquals(3, callbacks.stream().map(JavaEntity::entityId).distinct().count());
+        assertEquals(2, callbacks.stream().filter(entity -> entity.qualifiedName()
+                .equals("Outer.host.<anonymous@7:" + firstColumn + ">.run")).count());
+        assertEquals(1, callbacks.stream().filter(entity -> entity.qualifiedName()
+                .equals("Outer.host.<anonymous@7:" + secondColumn + ">.run")).count());
+        assertTrue(callbacks.stream().allMatch(entity -> entity.startLine() == 7
+                && entity.observedProducts().equals(List.of("P1", "P2"))));
+    }
+
+    @Test
+    void retainsOneAnonymousMethodWhenProductsSelectDifferentHeadersForTheSameClass() throws Exception {
+        Path file = writeSample("""
+                //#if P1
+                class Outer {
+                //#elif P2
+                class Outer implements java.io.Serializable {
+                //#endif
+                    void host() {
+                        Runnable callback = new Runnable() { public void run() {} };
+                    }
+                }
+                """);
+        var callbacks = extract(file).entities().stream()
+                .filter(entity -> entity.simpleName().equals("run")).toList();
+        assertEquals(1, callbacks.size());
+        assertEquals("Outer.host.<anonymous@7:29>.run", callbacks.get(0).qualifiedName());
+        assertEquals(List.of("P1", "P2"), callbacks.get(0).observedProducts());
+    }
+
     private EntityExtractionResult extract(Path file) throws Exception {
         return extract(List.of(file));
     }

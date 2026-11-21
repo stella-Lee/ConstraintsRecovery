@@ -74,7 +74,7 @@ public final class AuditReportBuilder {
                                                  List<DependencyEvidence> incoming,
                                                  Map<String, JavaEntity> entitiesById) {
         String qualifiedName = displayName(entity);
-        String declaringType = declaringType(entity);
+        String declaringType = entity.declaringTypeName();
         String packageName = packageName(qualifiedName);
         String typeSignature = typeSignature(outgoing, entitiesById);
         Set<String> nameTokens = tokens(entity.simpleName());
@@ -396,8 +396,8 @@ public final class AuditReportBuilder {
         if (source == null || target == null) {
             return false;
         }
-        String sourceClass = declaringType(source);
-        String targetClass = declaringType(target);
+        String sourceClass = source.declaringTypeName();
+        String targetClass = target.declaringTypeName();
         return !sourceClass.isBlank() && !targetClass.isBlank() && !sourceClass.equals(targetClass);
     }
 
@@ -1186,15 +1186,6 @@ public final class AuditReportBuilder {
         return entity.qualifiedName() == null || entity.qualifiedName().isBlank()
                 ? entity.simpleName()
                 : entity.qualifiedName();
-    }
-
-    private String declaringType(JavaEntity entity) {
-        String qualified = displayName(entity);
-        if (entity.entityType() == JavaEntityType.CLASS || entity.entityType() == JavaEntityType.INTERFACE) {
-            return "";
-        }
-        int lastDot = qualified.lastIndexOf('.');
-        return lastDot < 0 ? "" : qualified.substring(0, lastDot);
     }
 
     private String packageName(String qualifiedName) {

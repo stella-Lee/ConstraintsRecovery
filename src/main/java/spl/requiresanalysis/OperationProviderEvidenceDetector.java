@@ -11,13 +11,14 @@ import java.util.stream.Collectors;
 
 public final class OperationProviderEvidenceDetector {
     public OperationProviderEvidenceResult detect(ProviderDataFlowEvidenceResult providerDataFlowResult) {
-        Map<String, Bucket> buckets = new LinkedHashMap<>();
+        Map<OperationProviderKey, Bucket> buckets = new LinkedHashMap<>();
         for (ProviderDataFlowEvidence evidence : providerDataFlowResult.evidence()) {
             if (!"METHOD".equals(evidence.sourceEntityType()) && !"CONSTRUCTOR".equals(evidence.sourceEntityType())) {
                 continue;
             }
             String operationKey = evidence.sourceEntityName() + "@" + evidence.sourceEntityId();
-            String key = operationKey + "|" + evidence.sourceBlockId() + "|" + evidence.providerEntityId();
+            OperationProviderKey key = new OperationProviderKey(
+                    evidence.sourceEntityId(), evidence.sourceBlockId(), evidence.providerEntityId());
             buckets.computeIfAbsent(key, ignored -> new Bucket(operationKey)).add(evidence);
         }
 
@@ -37,6 +38,8 @@ public final class OperationProviderEvidenceDetector {
                 result
         );
     }
+
+    private record OperationProviderKey(String sourceEntityId, String sourceUnitId, String providerEntityId) {}
 
     private static final class Bucket {
         private final String operationKey;

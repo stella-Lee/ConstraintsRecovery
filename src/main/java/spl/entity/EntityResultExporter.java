@@ -14,7 +14,7 @@ public final class EntityResultExporter {
 
     private static void exportEntities(EntityExtractionResult result, Path outputFile) throws IOException {
         StringBuilder builder = new StringBuilder();
-        builder.append("entity_id,group_id,signature,entity_type,simple_name,qualified_name,file,start_line,end_line,block_id,observed_products,resolution_status\n");
+        builder.append("entity_id,group_id,signature,entity_type,simple_name,qualified_name,file,start_line,end_line,block_id,observed_products,resolution_status,declaring_type\n");
         for (JavaEntity entity : result.entities()) {
             builder.append(csv(entity.entityId())).append(',')
                     .append(csv(entity.signatureGroupId())).append(',')
@@ -27,7 +27,8 @@ public final class EntityResultExporter {
                     .append(entity.endLine()).append(',')
                     .append(csv(entity.containingBlockId())).append(',')
                     .append(csv(String.join("|", entity.observedProducts()))).append(',')
-                    .append(csv(entity.resolutionStatus().name())).append('\n');
+                    .append(csv(entity.resolutionStatus().name())).append(',')
+                    .append(csv(entity.declaringTypeName())).append('\n');
         }
         Files.writeString(outputFile, builder.toString(), StandardCharsets.UTF_8);
     }

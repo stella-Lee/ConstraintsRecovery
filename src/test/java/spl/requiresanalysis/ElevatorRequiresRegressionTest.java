@@ -93,6 +93,26 @@ class ElevatorRequiresRegressionTest {
                 .mapToInt(OperationProviderEvidence::supportingRelationCount).sum());
     }
 
+    @Test
+    void linksServiceListenerFieldReferencesAndCallsToItsAnonymousMethod() {
+        var listener = declarations.values().stream()
+                .filter(entity -> entity.sourceFile().endsWith("asset3") && entity.startLine() == 133
+                        && entity.simpleName().equals("actionPerformed"))
+                .findFirst().orElseThrow();
+        assertTrue(listener.qualifiedName().endsWith("MainWindow.createPanelControlsContent.<anonymous@132:30>.actionPerformed"));
+        assertEquals("Enterprise|HomePremium|Ultimate", listener.effectiveProductSignature().toString());
+        assertEquals(Set.of(135, 136), ofKind(FIELD_REFERENCE).stream()
+                .filter(relation -> listener.entityId().equals(relation.sourceEntityId()))
+                .filter(relation -> targetAt(relation, "asset3", 67))
+                .map(JavaRelation::sourceLine).collect(Collectors.toSet()));
+        assertEquals(Set.of("toggleService", "isInService"), ofKind(JavaRelationType.METHOD_CALL).stream()
+                .filter(relation -> listener.entityId().equals(relation.sourceEntityId()))
+                .filter(relation -> Set.of(135, 136).contains(relation.sourceLine()))
+                .filter(relation -> declarations.containsKey(relation.targetEntityId())
+                        && declarations.get(relation.targetEntityId()).sourceFile().endsWith("asset5"))
+                .map(JavaRelation::unresolvedTargetText).collect(Collectors.toSet()));
+    }
+
     private static void assertRequestConstructorUse(String source, int line) {
         assertEqualSignatureUse(source, line, "asset10", 28, CONSTRUCTOR_CALL);
         assertTrue(ofKind(CONSTRUCTOR_CALL).stream().noneMatch(relation ->
