@@ -257,12 +257,13 @@ public final class AuditReportExporter {
         if (pair.productSetRelation().name().equals("SOURCE_SUBSET_OF_TARGET")) {
             reasons.add("SOURCE_SET_SUBSET");
         }
-        if ("FEATURE_SPECIFIC".equals(pair.primaryTargetFeatureSpecificity())) {
+        if ("VARIABILITY_SPECIFIC_TARGET".equals(pair.primaryTargetFeatureSpecificity())
+                || "SINGLE_PRODUCT_TARGET".equals(pair.primaryTargetFeatureSpecificity())) {
             reasons.add("TARGET_FEATURE_RESOLVED");
         } else {
             reasons.add("TARGET_FEATURE_UNRESOLVED");
         }
-        if ("COMMON".equals(pair.primaryTargetFeatureSpecificity())) {
+        if ("COMMON_TARGET".equals(pair.primaryTargetFeatureSpecificity())) {
             reasons.add("COMMON_TARGET_ONLY");
         }
         if ("UNRESOLVED".equals(sourceFeature)) {
@@ -304,6 +305,10 @@ public final class AuditReportExporter {
             case "IMPLEMENTS" -> "CLASS".equals(pair.sourceEntityType())
                     && "INTERFACE".equals(pair.targetEntityType());
             case "FIELD_REFERENCE" -> "FIELD".equals(pair.targetEntityType())
+                    && ("METHOD".equals(pair.sourceEntityType())
+                    || "CONSTRUCTOR".equals(pair.sourceEntityType()));
+            case "FIELD_ACCESS_LIFTED_TO_TYPE" -> ("CLASS".equals(pair.targetEntityType())
+                    || "INTERFACE".equals(pair.targetEntityType()))
                     && ("METHOD".equals(pair.sourceEntityType())
                     || "CONSTRUCTOR".equals(pair.sourceEntityType()));
             case "METHOD_CALL" -> "METHOD".equals(pair.targetEntityType())

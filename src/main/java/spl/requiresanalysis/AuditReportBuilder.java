@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
 
 public final class AuditReportBuilder {
     private final RequiresCandidateConfig candidateConfig;
+    private final Map<java.nio.file.Path, List<String>> sourceLineCache = new HashMap<>();
 
     public AuditReportBuilder() {
         this(RequiresCandidateConfig.defaults());
@@ -144,11 +146,13 @@ public final class AuditReportBuilder {
                                               Map<String, List<JavaEntity>> entitiesByBlock) {
         Map<String, ConditionalBlock> blockById = result.blocks().stream()
                 .collect(Collectors.toMap(RequiresEvidenceBuilder::blockId, block -> block));
+        CanonicalElementIndex canonicalElements = canonicalElementIndex(result.entities(), blockById);
+        ProviderTargetIndex providerTargets = providerTargetIndex(result.entities());
         Set<String> universe = result.blocks().stream()
                 .flatMap(block -> block.signature().productIds().stream())
                 .collect(Collectors.toCollection(TreeMapSet::new));
 
-        List<DependencyEvidence> graphDependencies = result.dependencies().stream()
+        List<DependencyEvidence> rawGraphDependencies = result.dependencies().stream()
                 .filter(dependency -> DependencyKindClassifier.isBlockGraphDependency(dependency.relationType()))
                 .filter(dependency -> !dependency.targetBlockId().isBlank())
                 .filter(dependency -> dependency.resolutionStatus() == ResolutionStatus.RESOLVED_INTERNAL)
@@ -158,10 +162,16 @@ public final class AuditReportBuilder {
                     return source != null && target != null;
                 })
                 .toList();
+        List<DependencyEvidence> graphDependencies = rawGraphDependencies.stream()
+                .map(dependency -> liftFieldAccessToProvider(dependency, rawGraphDependencies, entitiesById,
+                        providerTargets, blockById, universe))
+                .toList();
+        Map<String, List<DependencyEvidence>> graphDependenciesBySourceBlock = graphDependencies.stream()
+                .collect(Collectors.groupingBy(DependencyEvidence::sourceBlockId));
 
         Map<String, List<DependencyEvidence>> byPair = graphDependencies.stream()
                 .collect(Collectors.groupingBy(
-                        dependency -> candidateKey(dependency, entitiesById),
+                        dependency -> candidateKey(dependency, entitiesById, canonicalElements, providerTargets),
                         TreeMap::new,
                         Collectors.toList()
                 ));
@@ -169,6 +179,7 @@ public final class AuditReportBuilder {
         List<AuditedBlockPair> pairs = new ArrayList<>();
         for (List<DependencyEvidence> rows : byPair.values()) {
             rows = rows.stream().sorted(Comparator.comparingInt(DependencyEvidence::sourceLine)
+                    .thenComparing((DependencyEvidence row) -> -relationRank(row.relationType()))
                     .thenComparing(row -> row.relationType().name())
                     .thenComparing(DependencyEvidence::targetEntityId)).toList();
             DependencyEvidence first = rows.get(0);
@@ -177,7 +188,8 @@ public final class AuditReportBuilder {
             JavaEntity sourceEntity = entitiesById.get(first.sourceEntityId());
             JavaEntity targetEntity = entitiesById.get(first.targetEntityId());
             Set<String> sourceProducts = products(sourceBlock);
-            Set<String> targetProducts = products(targetBlock);
+            TargetSignature targetSignature = targetSignature(rows, targetBlock, canonicalElements, universe, entitiesById);
+            Set<String> targetProducts = targetSignature.products();
             ProductSetRelation relation = productSetRelation(sourceProducts, targetProducts);
             String signatureRelation = signatureRelation(relation);
             boolean commonSource = sameSet(sourceProducts, universe);
@@ -194,14 +206,16 @@ public final class AuditReportBuilder {
             EvidenceLevel resolution = resolutionConfidence(rows);
             Set<InterpretationCategory> categories = categories(first, structural, domain, relation,
                     sameFeature, sharedSupport, commonContext, rows);
-            TargetLocalization localization = targetLocalization(first.targetBlockId(), rows, graphDependencies,
-                    entitiesById, entitiesByBlock, blockById);
+            TargetLocalization localization = targetLocalization(first.targetBlockId(), rows,
+                    graphDependenciesBySourceBlock.getOrDefault(first.sourceBlockId(), List.of()),
+                    entitiesById, entitiesByBlock, blockById, universe);
             categories = refineCommonOnlyCategories(categories, localization);
             boolean syntacticallyTrivial = equivalentPresence || syntacticallyContained(sourceBlock, targetBlock);
             RequiresCandidateStatus status = candidateStatus(first, sourceBlock, targetBlock, sourceEntity,
                     targetEntity, relation, commonTarget);
             RequiresCandidateCategory category = candidateCategory(status);
-            RequiresRelevance requires = requiresRelevance(status);
+            RequiresRelevance requires = requiresRelevance(status, rows, localization, targetSignature, universe,
+                    canonicalElements);
             EvidenceLevel confidence = confidence(status, rows);
             String sourceName = displayName(sourceEntity);
             String targetName = displayName(targetEntity);
@@ -265,7 +279,7 @@ public final class AuditReportBuilder {
                     join(categories.stream().map(Enum::name).collect(Collectors.toCollection(TreeMapSet::new))),
                     requires,
                     relevanceReasons(rows, structural, domain, direction, resolution),
-                    cautionReasons(relation, sameFeature, commonContext, localization),
+                    cautionReasons(relation, sameFeature, commonContext, localization, targetSignature),
                     exclusionReasons(rows),
                     localization.targetPresenceScope(),
                     localization.targetEntityCount(),
@@ -304,15 +318,35 @@ public final class AuditReportBuilder {
                 .toList();
     }
 
-    private String candidateKey(DependencyEvidence dependency, Map<String, JavaEntity> entitiesById) {
+    private String candidateKey(DependencyEvidence dependency, Map<String, JavaEntity> entitiesById,
+                                CanonicalElementIndex canonicalElements, ProviderTargetIndex providerTargets) {
         JavaEntity source = entitiesById.get(dependency.sourceEntityId());
         JavaEntity target = entitiesById.get(dependency.targetEntityId());
         return String.join("\u0000",
                 dependency.sourceBlockId(),
-                dependency.targetBlockId(),
                 stableEntityKey(source, dependency.sourceEntityId()),
-                stableEntityKey(target, dependency.targetEntityId()),
-                dependency.relationType().name());
+                providerCandidateKey(dependency, target, canonicalElements, providerTargets),
+                providerRelationBucket(dependency.relationType()));
+    }
+
+    private String providerCandidateKey(DependencyEvidence dependency, JavaEntity target,
+                                        CanonicalElementIndex canonicalElements,
+                                        ProviderTargetIndex providerTargets) {
+        if (dependency.relationType() == JavaRelationType.CONSTRUCTOR_CALL && target != null) {
+            JavaEntity provider = providerTargets.providerForConstructor(target);
+            if (provider != null) {
+                return canonicalElements.key(provider, provider.entityId());
+            }
+        }
+        return canonicalElements.key(target, dependency.targetEntityId());
+    }
+
+    private String providerRelationBucket(JavaRelationType relationType) {
+        if (relationType == JavaRelationType.FIELD_ACCESS_LIFTED_TO_TYPE
+                || relationType == JavaRelationType.CONSTRUCTOR_CALL) {
+            return "PROVIDER_ACCESS";
+        }
+        return relationType.name();
     }
 
     private String stableEntityKey(JavaEntity entity, String fallbackId) {
@@ -372,6 +406,9 @@ public final class AuditReportBuilder {
         if (row.sourceBlockId().equals(row.targetBlockId())) {
             return RequiresCandidateStatus.INTRA_BLOCK;
         }
+        if (sameAsset && !targetOutermost && relation == ProductSetRelation.SOURCE_SUBSET_OF_TARGET) {
+            return RequiresCandidateStatus.ELIGIBLE_REQUIRES_EVIDENCE;
+        }
         if (sameDeclaringClass(sourceEntity, targetEntity)) {
             return RequiresCandidateStatus.INTRA_CLASS;
         }
@@ -410,6 +447,8 @@ public final class AuditReportBuilder {
             case METHOD_CALL -> callableSource(source) && target.entityType() == JavaEntityType.METHOD;
             case CONSTRUCTOR_CALL -> callableSource(source) && target.entityType() == JavaEntityType.CONSTRUCTOR;
             case FIELD_REFERENCE -> callableSource(source) && target.entityType() == JavaEntityType.FIELD;
+            case FIELD_ACCESS_LIFTED_TO_TYPE -> callableSource(source)
+                    && (target.entityType() == JavaEntityType.CLASS || target.entityType() == JavaEntityType.INTERFACE);
             case TYPE_REFERENCE -> target.entityType() == JavaEntityType.CLASS
                     || target.entityType() == JavaEntityType.INTERFACE;
         };
@@ -436,6 +475,36 @@ public final class AuditReportBuilder {
         return status == RequiresCandidateStatus.ELIGIBLE_REQUIRES_EVIDENCE
                 ? RequiresRelevance.MEDIUM
                 : RequiresRelevance.LOW;
+    }
+
+    private RequiresRelevance requiresRelevance(RequiresCandidateStatus status, List<DependencyEvidence> rows,
+                                                TargetLocalization localization, TargetSignature targetSignature,
+                                                Set<String> universe, CanonicalElementIndex canonicalElements) {
+        if (status != RequiresCandidateStatus.ELIGIBLE_REQUIRES_EVIDENCE) {
+            return RequiresRelevance.LOW;
+        }
+        if (targetSignature.coarse()) {
+            return RequiresRelevance.LOW;
+        }
+        boolean noFeatureSpecificTarget = localization.featureSpecificTargetEntities().isBlank()
+                || "COMMON_TARGET".equals(localization.primaryTargetFeatureSpecificity());
+        boolean featureSpecificCallable = hasFeatureSpecificCallableTarget(rows, universe, canonicalElements);
+        if (noFeatureSpecificTarget) {
+            return featureSpecificCallable ? RequiresRelevance.MEDIUM : RequiresRelevance.LOW;
+        }
+        if (targetSignature.commonConstructorOnly()) {
+            return RequiresRelevance.LOW;
+        }
+        return RequiresRelevance.MEDIUM;
+    }
+
+    private boolean hasFeatureSpecificCallableTarget(List<DependencyEvidence> rows, Set<String> universe,
+                                                     CanonicalElementIndex canonicalElements) {
+        return rows.stream()
+                .filter(row -> row.relationType() == JavaRelationType.METHOD_CALL
+                        || row.relationType() == JavaRelationType.CONSTRUCTOR_CALL)
+                .map(row -> canonicalElements.products(row.targetEntityId(), null))
+                .anyMatch(products -> !products.isEmpty() && !sameSet(products, universe));
     }
 
     private EvidenceLevel confidence(RequiresCandidateStatus status, List<DependencyEvidence> rows) {
@@ -537,7 +606,8 @@ public final class AuditReportBuilder {
         return new EvidenceCounts(
                 (int) rows.stream().filter(row -> row.relationType() == JavaRelationType.METHOD_CALL).count(),
                 (int) rows.stream().filter(row -> row.relationType() == JavaRelationType.CONSTRUCTOR_CALL).count(),
-                (int) rows.stream().filter(row -> row.relationType() == JavaRelationType.FIELD_REFERENCE).count(),
+                (int) rows.stream().filter(row -> row.relationType() == JavaRelationType.FIELD_REFERENCE
+                        || row.relationType() == JavaRelationType.FIELD_ACCESS_LIFTED_TO_TYPE).count(),
                 (int) rows.stream().filter(row -> row.relationType() == JavaRelationType.EXTENDS).count(),
                 (int) rows.stream().filter(row -> row.relationType() == JavaRelationType.IMPLEMENTS).count(),
                 (int) rows.stream().map(DependencyEvidence::sourceEntityId).filter(id -> !id.isBlank()).distinct().count(),
@@ -548,11 +618,50 @@ public final class AuditReportBuilder {
         );
     }
 
+    private TargetSignature targetSignature(List<DependencyEvidence> rows, ConditionalBlock fallbackBlock,
+                                            CanonicalElementIndex canonicalElements, Set<String> universe,
+                                            Map<String, JavaEntity> entitiesById) {
+        Set<String> callableProducts = rows.stream()
+                .filter(row -> row.relationType() == JavaRelationType.CONSTRUCTOR_CALL
+                        || row.relationType() == JavaRelationType.METHOD_CALL)
+                .flatMap(row -> canonicalElements.products(row.targetEntityId(), null).stream())
+                .collect(Collectors.toCollection(TreeMapSet::new));
+        if (!callableProducts.isEmpty()) {
+            boolean commonConstructorOnly = rows.stream()
+                    .allMatch(row -> row.relationType() == JavaRelationType.CONSTRUCTOR_CALL);
+            return new TargetSignature(callableProducts, false, commonConstructorOnly && sameSet(callableProducts, universe));
+        }
+
+        Set<String> liftedProducts = rows.stream()
+                .filter(row -> row.relationType() == JavaRelationType.FIELD_ACCESS_LIFTED_TO_TYPE)
+                .flatMap(row -> canonicalElements.products(row.targetEntityId(), null).stream())
+                .collect(Collectors.toCollection(TreeMapSet::new));
+        if (!liftedProducts.isEmpty()) {
+            boolean broadClassFallback = rows.stream()
+                    .filter(row -> row.relationType() == JavaRelationType.FIELD_ACCESS_LIFTED_TO_TYPE)
+                    .map(row -> entitiesById.get(row.targetEntityId()))
+                    .filter(Objects::nonNull)
+                    .anyMatch(entity -> entity.entityType() == JavaEntityType.CLASS
+                            || entity.entityType() == JavaEntityType.INTERFACE)
+                    && sameSet(liftedProducts, universe);
+            return new TargetSignature(liftedProducts, broadClassFallback, false);
+        }
+
+        Set<String> targetProducts = rows.stream()
+                .flatMap(row -> canonicalElements.products(row.targetEntityId(), null).stream())
+                .collect(Collectors.toCollection(TreeMapSet::new));
+        if (!targetProducts.isEmpty()) {
+            return new TargetSignature(targetProducts, false, false);
+        }
+        return new TargetSignature(products(fallbackBlock), false, false);
+    }
+
     private TargetLocalization targetLocalization(String targetBlockId, List<DependencyEvidence> rows,
-                                                  List<DependencyEvidence> allVariableTargetDependencies,
+                                                  List<DependencyEvidence> sourceBlockDependencies,
                                                   Map<String, JavaEntity> entitiesById,
                                                   Map<String, List<JavaEntity>> entitiesByBlock,
-                                                  Map<String, ConditionalBlock> blockById) {
+                                                  Map<String, ConditionalBlock> blockById,
+                                                  Set<String> universe) {
         List<JavaEntity> targetBlockEntities = entitiesByBlock.getOrDefault(targetBlockId, List.of());
         List<JavaEntity> referenced = rows.stream()
                 .map(row -> entitiesById.get(row.targetEntityId()))
@@ -562,12 +671,12 @@ public final class AuditReportBuilder {
                         .thenComparing(entity -> entity.entityType().name())
                         .thenComparing(this::displayName))
                 .toList();
-        List<DependencyEvidence> contextualRows = allVariableTargetDependencies.stream()
-                .filter(row -> row.sourceBlockId().equals(rows.get(0).sourceBlockId()))
+        List<DependencyEvidence> contextualRows = sourceBlockDependencies.stream()
                 .filter(row -> !row.targetBlockId().equals(targetBlockId))
                 .filter(row -> isInside(blockById.get(row.targetBlockId()), blockById.get(targetBlockId)))
                 .toList();
-        List<TargetCandidate> candidates = targetCandidates(targetBlockId, rows, contextualRows, entitiesById, blockById);
+        List<TargetCandidate> candidates = targetCandidates(targetBlockId, rows, contextualRows, entitiesById,
+                blockById, universe);
         int directCount = referenced.size();
         double coarseness = directCount == 0 ? 0.0 : (double) targetBlockEntities.size() / directCount;
         String quality = coarseness > 3.0 ? "COARSE_TARGET_SCOPE" : "LOCALIZED_TARGET_SCOPE";
@@ -610,11 +719,11 @@ public final class AuditReportBuilder {
                         .map(candidate -> displayName(candidate.entity()))
                         .collect(Collectors.toSet())),
                 join(candidates.stream()
-                        .filter(candidate -> "COMMON".equals(candidate.featureSpecificity()))
+                        .filter(candidate -> "COMMON_TARGET".equals(candidate.featureSpecificity()))
                         .map(candidate -> displayName(candidate.entity()))
                         .collect(Collectors.toSet())),
                 join(candidates.stream()
-                        .filter(candidate -> "FEATURE_SPECIFIC".equals(candidate.featureSpecificity()))
+                        .filter(candidate -> variabilitySpecificTarget(candidate.featureSpecificity()))
                         .map(candidate -> displayName(candidate.entity()))
                         .collect(Collectors.toSet())),
                 evidenceSnippets(rows, referenced, entitiesById)
@@ -635,40 +744,50 @@ public final class AuditReportBuilder {
     ) {
     }
 
+    private record TargetSignature(
+            Set<String> products,
+            boolean coarse,
+            boolean commonConstructorOnly
+    ) {
+    }
+
     private List<TargetCandidate> targetCandidates(String targetBlockId, List<DependencyEvidence> rows,
                                                    List<DependencyEvidence> contextualRows,
                                                    Map<String, JavaEntity> entitiesById,
-                                                   Map<String, ConditionalBlock> blockById) {
+                                                   Map<String, ConditionalBlock> blockById,
+                                                   Set<String> universe) {
         Map<String, TargetCandidate> candidates = new LinkedHashMap<>();
         for (DependencyEvidence row : rows) {
             JavaEntity entity = entitiesById.get(row.targetEntityId());
             if (entity != null) {
-                candidates.put(entity.entityId(), candidate(entity, row, targetBlockId, blockById, true));
+                candidates.put(entity.entityId(), candidate(entity, row, targetBlockId, blockById, universe, true));
             }
         }
         for (DependencyEvidence row : contextualRows) {
             JavaEntity entity = entitiesById.get(row.targetEntityId());
             if (entity != null) {
-                candidates.putIfAbsent(entity.entityId(), candidate(entity, row, targetBlockId, blockById, false));
+                candidates.putIfAbsent(entity.entityId(), candidate(entity, row, targetBlockId, blockById, universe, false));
             }
         }
         return List.copyOf(candidates.values());
     }
 
     private TargetCandidate candidate(JavaEntity entity, DependencyEvidence row, String targetPresenceScope,
-                                      Map<String, ConditionalBlock> blockById, boolean direct) {
-        String specificity = featureSpecificity(entity, targetPresenceScope, blockById);
+                                      Map<String, ConditionalBlock> blockById, Set<String> universe, boolean direct) {
+        String specificity = featureSpecificity(targetPresenceScope, blockById, universe);
         boolean declaredInsideTargetFragment = entity.containingBlockId().equals(row.targetBlockId());
         boolean compile = row.relationType() == JavaRelationType.CONSTRUCTOR_CALL
                 || row.relationType() == JavaRelationType.TYPE_REFERENCE
                 || row.relationType() == JavaRelationType.EXTENDS
                 || row.relationType() == JavaRelationType.IMPLEMENTS
-                || row.relationType() == JavaRelationType.FIELD_REFERENCE;
+                || row.relationType() == JavaRelationType.FIELD_REFERENCE
+                || row.relationType() == JavaRelationType.FIELD_ACCESS_LIFTED_TO_TYPE;
         boolean runtime = row.relationType() == JavaRelationType.METHOD_CALL
                 || row.relationType() == JavaRelationType.CONSTRUCTOR_CALL
-                || row.relationType() == JavaRelationType.FIELD_REFERENCE;
+                || row.relationType() == JavaRelationType.FIELD_REFERENCE
+                || row.relationType() == JavaRelationType.FIELD_ACCESS_LIFTED_TO_TYPE;
         String reason = String.join("|", List.of(
-                "FEATURE_SPECIFIC".equals(specificity) ? "TARGET_FEATURE_SPECIFIC" : "TARGET_" + specificity,
+                variabilitySpecificTarget(specificity) ? "TARGET_VARIABILITY_SPECIFIC" : "TARGET_" + specificity,
                 declaredInsideTargetFragment ? "DECLARED_IN_TARGET_FRAGMENT" : "DECLARED_IN_ENCLOSING_FRAGMENT",
                 direct ? "DIRECTLY_REFERENCED_BY_SOURCE_BLOCK" : "REQUIRED_BY_DIRECTEDCALL_CODE",
                 compile ? "COMPILE_TIME_NECESSITY" : "RUNTIME_OR_STRUCTURAL_USE",
@@ -679,20 +798,28 @@ public final class AuditReportBuilder {
                 compile, runtime, row.relationType(), direct, reason);
     }
 
-    private String featureSpecificity(JavaEntity entity, String targetPresenceScope,
-                                      Map<String, ConditionalBlock> blockById) {
-        ConditionalBlock entityBlock = blockById.get(entity.containingBlockId());
+    private String featureSpecificity(String targetPresenceScope, Map<String, ConditionalBlock> blockById,
+                                      Set<String> universe) {
         ConditionalBlock presenceBlock = blockById.get(targetPresenceScope);
-        if (entityBlock == null || presenceBlock == null) {
+        if (presenceBlock == null) {
             return "UNKNOWN";
         }
-        if (!entity.containingBlockId().equals(targetPresenceScope) && isInside(entityBlock, presenceBlock)) {
-            return "FEATURE_SPECIFIC";
+        Set<String> products = products(presenceBlock);
+        if (products.isEmpty()) {
+            return "UNKNOWN";
         }
-        if (sameSet(products(entityBlock), products(presenceBlock))) {
-            return "COMMON";
+        if (!universe.isEmpty() && sameSet(products, universe)) {
+            return "COMMON_TARGET";
         }
-        return "FEATURE_SHARED";
+        if (products.size() == 1) {
+            return "SINGLE_PRODUCT_TARGET";
+        }
+        return "VARIABILITY_SPECIFIC_TARGET";
+    }
+
+    private boolean variabilitySpecificTarget(String specificity) {
+        return "VARIABILITY_SPECIFIC_TARGET".equals(specificity)
+                || "SINGLE_PRODUCT_TARGET".equals(specificity);
     }
 
     private TargetCandidate primaryTarget(List<TargetCandidate> candidates) {
@@ -708,9 +835,9 @@ public final class AuditReportBuilder {
     private int primaryScore(TargetCandidate candidate) {
         int score = 0;
         score += switch (candidate.featureSpecificity()) {
-            case "FEATURE_SPECIFIC" -> 10_000;
-            case "FEATURE_SHARED" -> 5_000;
-            case "COMMON" -> 1_000;
+            case "VARIABILITY_SPECIFIC_TARGET" -> 10_000;
+            case "SINGLE_PRODUCT_TARGET" -> 5_000;
+            case "COMMON_TARGET" -> 1_000;
             default -> 0;
         };
         if (candidate.declaredInsideTargetFragment()) {
@@ -731,6 +858,7 @@ public final class AuditReportBuilder {
 
     private int relationRank(JavaRelationType type) {
         return switch (type) {
+            case FIELD_ACCESS_LIFTED_TO_TYPE -> 70;
             case CONSTRUCTOR_CALL -> 60;
             case FIELD_REFERENCE -> 50;
             case METHOD_CALL -> 40;
@@ -786,12 +914,18 @@ public final class AuditReportBuilder {
             return "";
         }
         try {
-            List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+            List<String> lines = sourceLineCache.computeIfAbsent(file.toAbsolutePath().normalize(), path -> {
+                try {
+                    return Files.readAllLines(path, StandardCharsets.UTF_8);
+                } catch (IOException exception) {
+                    return List.of();
+                }
+            });
             if (line > lines.size()) {
                 return "";
             }
             return lines.get(line - 1).trim();
-        } catch (IOException exception) {
+        } catch (RuntimeException exception) {
             return "";
         }
     }
@@ -921,7 +1055,8 @@ public final class AuditReportBuilder {
 
     private EvidenceLevel structuralStrength(List<DependencyEvidence> rows) {
         boolean strongKind = rows.stream().anyMatch(row -> row.relationType() == JavaRelationType.METHOD_CALL
-                || row.relationType() == JavaRelationType.CONSTRUCTOR_CALL);
+                || row.relationType() == JavaRelationType.CONSTRUCTOR_CALL
+                || row.relationType() == JavaRelationType.FIELD_ACCESS_LIFTED_TO_TYPE);
         boolean structuralKind = rows.stream()
                 .anyMatch(row -> DependencyKindClassifier.isStructuralDependency(row.relationType()));
         if (strongKind && rows.size() >= 2) {
@@ -1082,7 +1217,7 @@ public final class AuditReportBuilder {
             return RequiresRelevance.LOW;
         }
         if (localization.featureSpecificTargetEntities().isBlank()
-                || "COMMON".equals(localization.primaryTargetFeatureSpecificity())) {
+                || "COMMON_TARGET".equals(localization.primaryTargetFeatureSpecificity())) {
             return RequiresRelevance.LOW;
         }
         if (isStructuralEvidence(categories) && !categories.contains(InterpretationCategory.REQUIRES_PLAUSIBLE)) {
@@ -1110,7 +1245,7 @@ public final class AuditReportBuilder {
                                                                    TargetLocalization localization) {
         Set<InterpretationCategory> refined = new HashSet<>(categories);
         if (localization.featureSpecificTargetEntities().isBlank()
-                || "COMMON".equals(localization.primaryTargetFeatureSpecificity())) {
+                || "COMMON_TARGET".equals(localization.primaryTargetFeatureSpecificity())) {
             refined.add(InterpretationCategory.SHARED_DOMAIN_MODEL);
         }
         return refined;
@@ -1126,10 +1261,16 @@ public final class AuditReportBuilder {
     }
 
     private String cautionReasons(ProductSetRelation relation, EvidenceLevel sameFeature, EvidenceLevel commonContext,
-                                  TargetLocalization localization) {
+                                  TargetLocalization localization, TargetSignature targetSignature) {
         List<String> reasons = new ArrayList<>();
+        if (targetSignature.coarse()) {
+            reasons.add("LIFTED_TARGET_COARSE_SIGNATURE");
+        }
+        if (targetSignature.commonConstructorOnly()) {
+            reasons.add("COMMON_CONSTRUCTOR_CALL_ONLY");
+        }
         if (localization.featureSpecificTargetEntities().isBlank()
-                || "COMMON".equals(localization.primaryTargetFeatureSpecificity())) {
+                || "COMMON_TARGET".equals(localization.primaryTargetFeatureSpecificity())) {
             reasons.add("NO_FEATURE_SPECIFIC_TARGET");
         }
         if (relation == ProductSetRelation.EQUAL) {
@@ -1340,6 +1481,248 @@ public final class AuditReportBuilder {
         return values.stream().filter(value -> value != null && !value.isBlank())
                 .sorted()
                 .collect(Collectors.joining("|"));
+    }
+
+    private DependencyEvidence liftFieldAccessToProvider(DependencyEvidence dependency,
+                                                          List<DependencyEvidence> rawGraphDependencies,
+                                                          Map<String, JavaEntity> entitiesById,
+                                                          ProviderTargetIndex providerTargets,
+                                                          Map<String, ConditionalBlock> blockById,
+                                                          Set<String> universe) {
+        if (dependency.relationType() != JavaRelationType.FIELD_REFERENCE
+                || dependency.resolutionStatus() != ResolutionStatus.RESOLVED_INTERNAL) {
+            return dependency;
+        }
+        JavaEntity field = entitiesById.get(dependency.targetEntityId());
+        if (field == null || field.entityType() != JavaEntityType.FIELD) {
+            return dependency;
+        }
+        String declaredType = declaredFieldType(field);
+        JavaEntity provider = providerTargets.providerForType(declaredType);
+        if (provider == null) {
+            return dependency;
+        }
+        ConditionalBlock fieldBlock = blockById.get(field.containingBlockId());
+        ConditionalBlock providerBlock = blockById.get(provider.containingBlockId());
+        Set<String> fieldProducts = products(fieldBlock);
+        Set<String> providerProducts = products(providerBlock);
+        if (!fieldProducts.isEmpty()
+                && !sameSet(fieldProducts, universe)
+                && properSuperset(providerProducts, fieldProducts)
+                && !hasDirectProviderDependency(dependency, provider, rawGraphDependencies, entitiesById)) {
+            return dependency;
+        }
+        return new DependencyEvidence(
+                dependency.relationId() + "#provider",
+                dependency.sourceBlockId(),
+                provider.containingBlockId(),
+                dependency.sourceEntityId(),
+                provider.entityId(),
+                field.simpleName() + " : " + declaredType,
+                JavaRelationType.FIELD_ACCESS_LIFTED_TO_TYPE,
+                dependency.sourceFile(),
+                dependency.sourceLine(),
+                dependency.sourceGroupId(),
+                provider.signatureGroupId(),
+                dependency.sourceSignature(),
+                provider.effectiveProductSignature().toString(),
+                dependency.sourceEntityRole(),
+                dependency.targetEntityRole(),
+                dependency.dependencyStrength(),
+                Math.max(dependency.domainRelevance(), 0.5),
+                dependency.requiresRelevance(),
+                DependencyExclusionReason.NONE,
+                dependency.resolutionStatus(),
+                dependency.observedProducts()
+        );
+    }
+
+    private boolean hasDirectProviderDependency(DependencyEvidence fieldDependency, JavaEntity provider,
+                                                List<DependencyEvidence> rawGraphDependencies,
+                                                Map<String, JavaEntity> entitiesById) {
+        return rawGraphDependencies.stream()
+                .filter(row -> row.sourceBlockId().equals(fieldDependency.sourceBlockId()))
+                .filter(row -> row.sourceEntityId().equals(fieldDependency.sourceEntityId()))
+                .filter(row -> row.relationType() == JavaRelationType.CONSTRUCTOR_CALL)
+                .map(DependencyEvidence::targetEntityId)
+                .map(targetId -> providerRelatedEntity(entitiesById.get(targetId), provider))
+                .anyMatch(Boolean::booleanValue);
+    }
+
+    private boolean providerRelatedEntity(JavaEntity target, JavaEntity provider) {
+        if (target == null || provider == null) {
+            return false;
+        }
+        String providerName = displayName(provider);
+        String targetName = displayName(target);
+        return target.entityId().equals(provider.entityId())
+                || targetName.equals(providerName)
+                || targetName.startsWith(providerName + ".");
+    }
+
+    private boolean properSuperset(Set<String> candidateSuperset, Set<String> candidateSubset) {
+        return candidateSuperset.size() > candidateSubset.size()
+                && candidateSuperset.containsAll(candidateSubset);
+    }
+
+    private String declaredFieldType(JavaEntity field) {
+        String line = lineSnippet(field.sourceFile(), field.startLine());
+        if (line.isBlank()) {
+            return "";
+        }
+        int fieldName = line.indexOf(field.simpleName());
+        if (fieldName <= 0) {
+            return "";
+        }
+        String prefix = line.substring(0, fieldName).trim();
+        String[] tokens = prefix.split("\\s+");
+        for (int index = tokens.length - 1; index >= 0; index--) {
+            String token = cleanTypeToken(tokens[index]);
+            if (!token.isBlank() && !fieldModifier(token)) {
+                return token;
+            }
+        }
+        return "";
+    }
+
+    private String cleanTypeToken(String token) {
+        String cleaned = token == null ? "" : token.trim();
+        while (cleaned.endsWith("[]")) {
+            cleaned = cleaned.substring(0, cleaned.length() - 2);
+        }
+        int generic = cleaned.indexOf('<');
+        if (generic >= 0) {
+            cleaned = cleaned.substring(0, generic);
+        }
+        return cleaned.replace("...", "").replace(",", "").trim();
+    }
+
+    private boolean fieldModifier(String token) {
+        return Set.of("private", "protected", "public", "static", "final", "volatile", "transient").contains(token);
+    }
+
+    private CanonicalElementIndex canonicalElementIndex(List<JavaEntity> entities,
+                                                        Map<String, ConditionalBlock> blockById) {
+        Map<String, String> keyByEntityId = new LinkedHashMap<>();
+        Map<String, Set<String>> productsByKey = new LinkedHashMap<>();
+        for (JavaEntity entity : entities) {
+            String key = canonicalElementKey(entity);
+            keyByEntityId.put(entity.entityId(), key);
+            Set<String> products = productsByKey.computeIfAbsent(key, ignored -> new TreeMapSet());
+            ConditionalBlock block = blockById.get(entity.containingBlockId());
+            if (block == null) {
+                products.addAll(entity.observedProducts());
+            } else {
+                products.addAll(products(block));
+            }
+        }
+        return new CanonicalElementIndex(keyByEntityId, productsByKey);
+    }
+
+    private String canonicalElementKey(JavaEntity entity) {
+        if (entity == null) {
+            return "";
+        }
+        return entity.entityType().name() + "|" + displayName(entity);
+    }
+
+    private ProviderTargetIndex providerTargetIndex(List<JavaEntity> entities) {
+        Map<String, List<JavaEntity>> bySimpleName = new LinkedHashMap<>();
+        Map<String, JavaEntity> byQualifiedName = new LinkedHashMap<>();
+        for (JavaEntity entity : entities) {
+            if (entity.entityType() == JavaEntityType.CLASS || entity.entityType() == JavaEntityType.INTERFACE) {
+                bySimpleName.computeIfAbsent(entity.simpleName(), ignored -> new ArrayList<>()).add(entity);
+                byQualifiedName.put(displayName(entity), entity);
+            }
+        }
+        return new ProviderTargetIndex(bySimpleName, byQualifiedName);
+    }
+
+    private final class CanonicalElementIndex {
+        private final Map<String, String> keyByEntityId;
+        private final Map<String, Set<String>> productsByKey;
+
+        private CanonicalElementIndex(Map<String, String> keyByEntityId, Map<String, Set<String>> productsByKey) {
+            this.keyByEntityId = Map.copyOf(keyByEntityId);
+            this.productsByKey = productsByKey.entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey,
+                            entry -> Set.copyOf(entry.getValue()),
+                            (left, right) -> left,
+                            LinkedHashMap::new));
+        }
+
+        private String key(JavaEntity entity, String fallbackId) {
+            if (entity == null) {
+                return fallbackId == null ? "" : fallbackId;
+            }
+            return keyByEntityId.getOrDefault(entity.entityId(), canonicalElementKey(entity));
+        }
+
+        private Set<String> products(String entityId, ConditionalBlock fallbackBlock) {
+            String key = keyByEntityId.get(entityId);
+            Set<String> products = key == null ? Set.of() : productsByKey.getOrDefault(key, Set.of());
+            if (!products.isEmpty()) {
+                return products.stream().collect(Collectors.toCollection(TreeMapSet::new));
+            }
+            return AuditReportBuilder.this.products(fallbackBlock);
+        }
+    }
+
+    private final class ProviderTargetIndex {
+        private final Map<String, List<JavaEntity>> bySimpleName;
+        private final Map<String, JavaEntity> byQualifiedName;
+
+        private ProviderTargetIndex(Map<String, List<JavaEntity>> bySimpleName,
+                                    Map<String, JavaEntity> byQualifiedName) {
+            this.bySimpleName = bySimpleName.entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey,
+                            entry -> List.copyOf(entry.getValue()),
+                            (left, right) -> left,
+                            LinkedHashMap::new));
+            this.byQualifiedName = Map.copyOf(byQualifiedName);
+        }
+
+        private JavaEntity providerForType(String declaredType) {
+            String type = cleanTypeToken(declaredType);
+            if (type.isBlank() || primitiveType(type) || externalType(type)) {
+                return null;
+            }
+            JavaEntity qualified = byQualifiedName.get(type);
+            if (qualified != null) {
+                return qualified;
+            }
+            String simple = type.contains(".") ? type.substring(type.lastIndexOf('.') + 1) : type;
+            List<JavaEntity> matches = bySimpleName.getOrDefault(simple, List.of());
+            if (matches.isEmpty()) {
+                return null;
+            }
+            if (matches.size() == 1) {
+                return matches.get(0);
+            }
+            List<JavaEntity> sameCanonicalType = matches.stream()
+                    .filter(match -> displayName(match).equals(displayName(matches.get(0))))
+                    .toList();
+            return sameCanonicalType.size() == matches.size() ? matches.get(0) : null;
+        }
+
+        private JavaEntity providerForConstructor(JavaEntity constructor) {
+            if (constructor == null || constructor.entityType() != JavaEntityType.CONSTRUCTOR) {
+                return null;
+            }
+            String declaring = declaringType(constructor);
+            return providerForType(declaring.isBlank() ? constructor.simpleName() : declaring);
+        }
+    }
+
+    private boolean primitiveType(String type) {
+        return Set.of("byte", "short", "int", "long", "float", "double", "boolean", "char", "void").contains(type);
+    }
+
+    private boolean externalType(String type) {
+        return type.startsWith("java.")
+                || type.startsWith("javax.")
+                || type.startsWith("jakarta.")
+                || type.startsWith("org.eclipse.");
     }
 
     private static final class TreeMapSet extends java.util.TreeSet<String> {

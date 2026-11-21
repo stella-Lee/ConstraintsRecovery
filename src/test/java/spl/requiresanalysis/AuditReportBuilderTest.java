@@ -251,7 +251,7 @@ class AuditReportBuilderTest {
     }
 
     @Test
-    void sourceSubsetOfTargetIsFilteredAsTautologicalEvenWithFeatureSpecificTarget() throws Exception {
+    void sameAssetNestedVariabilityProviderRemainsRequiresEvidence() throws Exception {
         ConditionalBlock sourceBlock = block("asset10", ConditionalBlock.DirectiveType.IF, 105, 144,
                 1, "Enterprise|Professional");
         ConditionalBlock broadTarget = block("asset10", ConditionalBlock.DirectiveType.IF, 8, 145,
@@ -293,9 +293,16 @@ class AuditReportBuilderTest {
         );
 
         AuditReportResult result = new AuditReportBuilder().build(evidence);
-        assertTrue(result.blockPairs().stream()
-                .anyMatch(pair -> pair.candidateStatus() == RequiresCandidateStatus.INTRA_ASSET_MANDATORY_TARGET
-                        && pair.dependencyKind().equals("METHOD_CALL")));
+        AuditedBlockPair fieldPair = result.blockPairs().stream()
+                .filter(pair -> pair.sourceBlockId().equals(sourceBlockId))
+                .filter(pair -> pair.targetBlockId().equals(nestedTargetId))
+                .filter(pair -> pair.dependencyKinds().contains("FIELD_REFERENCE"))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(RequiresCandidateStatus.ELIGIBLE_REQUIRES_EVIDENCE, fieldPair.candidateStatus());
+        assertEquals(RequiresRelevance.MEDIUM, fieldPair.requiresRelevance());
+        assertEquals("VARIABILITY_SPECIFIC_TARGET", fieldPair.primaryTargetFeatureSpecificity());
+        assertFalse(fieldPair.cautionReasons().contains("NO_FEATURE_SPECIFIC_TARGET"));
     }
 
     @Test
@@ -438,6 +445,272 @@ class AuditReportBuilderTest {
         assertTrue(candidate.contains("INTRA_CLASS"));
         assertFalse(candidate.contains(",EXTENDS,"));
         assertFalse(candidate.contains("EXTENDS|FIELD_REFERENCE"));
+    }
+
+    @Test
+    void shouldMergeRepeatedFieldDeclarationsAcrossElifBranchesForRequiresProducts() throws Exception {
+        ConditionalBlock executeFirstBlock = block("asset5", ConditionalBlock.DirectiveType.IF, 1470, 1474,
+                1, "BerkeleyDB-FH-3|BerkeleyDB-FH-5");
+        ConditionalBlock executeSecondBlock = block("asset5", ConditionalBlock.DirectiveType.ELIF, 1475, 1481,
+                1, "BerkeleyDB-FH-1|BerkeleyDB-FH-4|BerkeleyDB-FH-6|BerkeleyDB-FH-9");
+        ConditionalBlock evictorMainBlock = block("asset5", ConditionalBlock.DirectiveType.IF, 150, 155,
+                1, "BerkeleyDB-FH-1|BerkeleyDB-FH-3|BerkeleyDB-FH-4|BerkeleyDB-FH-5|BerkeleyDB-FH-6");
+        ConditionalBlock evictorNineBlock = block("asset5", ConditionalBlock.DirectiveType.ELIF, 162, 166,
+                1, "BerkeleyDB-FH-9");
+        ConditionalBlock universeContributor = block("asset5", ConditionalBlock.DirectiveType.IF, 2000, 2000,
+                1, "BerkeleyDB-FH-7|BerkeleyDB-FH-8");
+        String executeFirstId = RequiresEvidenceBuilder.blockId(executeFirstBlock);
+        String executeSecondId = RequiresEvidenceBuilder.blockId(executeSecondBlock);
+        String evictorMainId = RequiresEvidenceBuilder.blockId(evictorMainBlock);
+        String evictorNineId = RequiresEvidenceBuilder.blockId(evictorNineBlock);
+
+        JavaEntity executeFirst = entity("S1", JavaEntityType.METHOD, "execute",
+                "com.sleepycat.je.dbi.EnvironmentImpl.EnvironmentImpl_createDaemons.execute",
+                Path.of("asset5"), 1471, 1474, executeFirstId, "G47", "BerkeleyDB-FH-3|BerkeleyDB-FH-5");
+        JavaEntity executeSecond = entity("S2", JavaEntityType.METHOD, "execute",
+                "com.sleepycat.je.dbi.EnvironmentImpl.EnvironmentImpl_createDaemons.execute",
+                Path.of("asset5"), 1476, 1479, executeSecondId, "G25",
+                "BerkeleyDB-FH-1|BerkeleyDB-FH-4|BerkeleyDB-FH-6|BerkeleyDB-FH-9");
+        JavaEntity evictorMain = entity("T1", JavaEntityType.FIELD, "evictor",
+                "com.sleepycat.je.dbi.EnvironmentImpl.evictor",
+                Path.of("asset5"), 151, 151, evictorMainId, "G4",
+                "BerkeleyDB-FH-1|BerkeleyDB-FH-3|BerkeleyDB-FH-4|BerkeleyDB-FH-5|BerkeleyDB-FH-6");
+        JavaEntity evictorNine = entity("T2", JavaEntityType.FIELD, "evictor",
+                "com.sleepycat.je.dbi.EnvironmentImpl.evictor",
+                Path.of("asset5"), 163, 163, evictorNineId, "G84", "BerkeleyDB-FH-9");
+        RequiresEvidenceResult evidence = evidence(
+                List.of(executeFirstBlock, executeSecondBlock, evictorMainBlock, evictorNineBlock, universeContributor),
+                List.of(executeFirst, executeSecond, evictorMain, evictorNine),
+                List.of(
+                        dependency("D1", executeFirst.entityId(), evictorMain.entityId(),
+                                JavaRelationType.FIELD_REFERENCE, executeFirstId, evictorMainId, Path.of("asset5"),
+                                1472, "G47", "G4", "BerkeleyDB-FH-3|BerkeleyDB-FH-5",
+                                "BerkeleyDB-FH-1|BerkeleyDB-FH-3|BerkeleyDB-FH-4|BerkeleyDB-FH-5|BerkeleyDB-FH-6"),
+                        dependency("D2", executeSecond.entityId(), evictorNine.entityId(),
+                                JavaRelationType.FIELD_REFERENCE, executeSecondId, evictorNineId, Path.of("asset5"),
+                                1477, "G25", "G84",
+                                "BerkeleyDB-FH-1|BerkeleyDB-FH-4|BerkeleyDB-FH-6|BerkeleyDB-FH-9",
+                                "BerkeleyDB-FH-9")
+                ));
+
+        AuditReportResult result = new AuditReportBuilder().build(evidence);
+
+        assertEquals(2, result.blockPairs().size());
+        AuditedBlockPair firstCandidate = result.blockPairs().stream()
+                .filter(candidate -> candidate.sourceBlockId().equals(executeFirstId))
+                .findFirst()
+                .orElseThrow();
+        AuditedBlockPair secondCandidate = result.blockPairs().stream()
+                .filter(candidate -> candidate.sourceBlockId().equals(executeSecondId))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(1, firstCandidate.occurrenceCount());
+        assertEquals(1, secondCandidate.occurrenceCount());
+        assertEquals("BerkeleyDB-FH-1|BerkeleyDB-FH-3|BerkeleyDB-FH-4|BerkeleyDB-FH-5|BerkeleyDB-FH-6|BerkeleyDB-FH-9",
+                firstCandidate.targetProductSet());
+        assertEquals("BerkeleyDB-FH-1|BerkeleyDB-FH-3|BerkeleyDB-FH-4|BerkeleyDB-FH-5|BerkeleyDB-FH-6|BerkeleyDB-FH-9",
+                secondCandidate.targetProductSet());
+        assertEquals("BerkeleyDB-FH-3|BerkeleyDB-FH-5", firstCandidate.sourceProductSet());
+        assertEquals("BerkeleyDB-FH-1|BerkeleyDB-FH-4|BerkeleyDB-FH-6|BerkeleyDB-FH-9",
+                secondCandidate.sourceProductSet());
+        assertEquals(ProductSetRelation.SOURCE_SUBSET_OF_TARGET, firstCandidate.productSetRelation());
+        assertEquals(ProductSetRelation.SOURCE_SUBSET_OF_TARGET, secondCandidate.productSetRelation());
+        assertFalse(secondCandidate.targetProductSet().equals("BerkeleyDB-FH-9"));
+    }
+
+    @Test
+    void shouldLiftFieldAccessTargetToInternalDeclaredTypeProvider() throws Exception {
+        Path asset5 = tempDir.resolve("asset5");
+        Files.write(asset5, List.of(
+                "class EnvironmentImpl {",
+                "    private Evictor evictor;",
+                "    void execute() {",
+                "        this.evictor = new Evictor(this, \"Evictor\");",
+                "    }",
+                "}"
+        ));
+        ConditionalBlock sourceBlock = block(asset5.toString(), ConditionalBlock.DirectiveType.IF, 3, 5,
+                1, "BerkeleyDB-FH-3|BerkeleyDB-FH-5");
+        ConditionalBlock fieldBlock = block(asset5.toString(), ConditionalBlock.DirectiveType.ELIF, 2, 2,
+                1, "BerkeleyDB-FH-9");
+        ConditionalBlock providerBlock = block("asset9", ConditionalBlock.DirectiveType.IF, 1, 20,
+                1, "BerkeleyDB-FH-1|BerkeleyDB-FH-3|BerkeleyDB-FH-4|BerkeleyDB-FH-5|BerkeleyDB-FH-6|BerkeleyDB-FH-9");
+        ConditionalBlock repeatedProviderBlock = block("asset99", ConditionalBlock.DirectiveType.IF, 1, 20,
+                1, "BerkeleyDB-FH-9");
+        String sourceBlockId = RequiresEvidenceBuilder.blockId(sourceBlock);
+        String fieldBlockId = RequiresEvidenceBuilder.blockId(fieldBlock);
+        String providerBlockId = RequiresEvidenceBuilder.blockId(providerBlock);
+        String repeatedProviderBlockId = RequiresEvidenceBuilder.blockId(repeatedProviderBlock);
+        JavaEntity execute = entity("S1", JavaEntityType.METHOD, "execute",
+                "db.EnvironmentImpl.execute", asset5, 3, 5, sourceBlockId, "GS",
+                "BerkeleyDB-FH-3|BerkeleyDB-FH-5");
+        JavaEntity evictorField = entity("F1", JavaEntityType.FIELD, "evictor",
+                "db.EnvironmentImpl.evictor", asset5, 2, 2, fieldBlockId, "GF",
+                "BerkeleyDB-FH-9");
+        JavaEntity evictorClass = entity("T1", JavaEntityType.CLASS, "Evictor",
+                "db.Evictor", Path.of("asset9"), 1, 20, providerBlockId, "GT",
+                "BerkeleyDB-FH-1|BerkeleyDB-FH-3|BerkeleyDB-FH-4|BerkeleyDB-FH-5|BerkeleyDB-FH-6|BerkeleyDB-FH-9");
+        JavaEntity evictorConstructor = entity("C1", JavaEntityType.CONSTRUCTOR, "Evictor",
+                "db.Evictor.Evictor", Path.of("asset9"), 2, 3, providerBlockId, "GT",
+                "BerkeleyDB-FH-1|BerkeleyDB-FH-3|BerkeleyDB-FH-4|BerkeleyDB-FH-5|BerkeleyDB-FH-6|BerkeleyDB-FH-9");
+        JavaEntity repeatedEvictorClass = entity("T2", JavaEntityType.CLASS, "Evictor",
+                "db.Evictor", Path.of("asset99"), 1, 20, repeatedProviderBlockId, "GT2", "BerkeleyDB-FH-9");
+        RequiresEvidenceResult evidence = evidence(
+                List.of(sourceBlock, fieldBlock, providerBlock, repeatedProviderBlock),
+                List.of(execute, evictorField, evictorClass, evictorConstructor, repeatedEvictorClass),
+                List.of(
+                        dependency("D1", execute.entityId(), evictorField.entityId(),
+                                JavaRelationType.FIELD_REFERENCE, sourceBlockId, fieldBlockId, asset5,
+                                4, "GS", "GF", "BerkeleyDB-FH-3|BerkeleyDB-FH-5", "BerkeleyDB-FH-9"),
+                        dependency("D2", execute.entityId(), evictorConstructor.entityId(),
+                                JavaRelationType.CONSTRUCTOR_CALL, sourceBlockId, providerBlockId, asset5,
+                                4, "GS", "GT", "BerkeleyDB-FH-3|BerkeleyDB-FH-5",
+                                "BerkeleyDB-FH-1|BerkeleyDB-FH-3|BerkeleyDB-FH-4|BerkeleyDB-FH-5|BerkeleyDB-FH-6|BerkeleyDB-FH-9")
+                ));
+
+        AuditReportResult result = new AuditReportBuilder().build(evidence);
+
+        assertEquals(1, result.blockPairs().size());
+        AuditedBlockPair candidate = result.blockPairs().get(0);
+        assertEquals(providerBlockId, candidate.targetBlockId());
+        assertEquals("db.Evictor", candidate.targetEntity());
+        assertEquals("CLASS", candidate.targetEntityType());
+        assertTrue(candidate.dependencyKinds().contains("FIELD_ACCESS_LIFTED_TO_TYPE"));
+        assertTrue(candidate.dependencyKinds().contains("CONSTRUCTOR_CALL"));
+        assertFalse(candidate.targetEntity().contains("evictor"));
+        assertEquals(ProductSetRelation.SOURCE_SUBSET_OF_TARGET, candidate.productSetRelation());
+    }
+
+    @Test
+    void shouldKeepRawFieldTargetWhenDeclaredTypeHasNoInternalProvider() throws Exception {
+        Path asset = tempDir.resolve("assetNoProvider");
+        Files.write(asset, List.of(
+                "class EnvironmentImpl {",
+                "    private MissingProvider missing;",
+                "    void execute() {",
+                "        this.missing = null;",
+                "    }",
+                "}"
+        ));
+        ConditionalBlock sourceBlock = block(asset.toString(), ConditionalBlock.DirectiveType.IF, 3, 5,
+                1, "P1");
+        ConditionalBlock fieldBlock = block(asset.toString(), ConditionalBlock.DirectiveType.IF, 2, 2,
+                1, "P1|P2");
+        String sourceBlockId = RequiresEvidenceBuilder.blockId(sourceBlock);
+        String fieldBlockId = RequiresEvidenceBuilder.blockId(fieldBlock);
+        JavaEntity execute = entity("S1", JavaEntityType.METHOD, "execute",
+                "db.EnvironmentImpl.execute", asset, 3, 5, sourceBlockId, "GS", "P1");
+        JavaEntity missingField = entity("F1", JavaEntityType.FIELD, "missing",
+                "db.EnvironmentImpl.missing", asset, 2, 2, fieldBlockId, "GF", "P1|P2");
+        RequiresEvidenceResult evidence = evidence(
+                List.of(sourceBlock, fieldBlock),
+                List.of(execute, missingField),
+                List.of(dependency("D1", execute.entityId(), missingField.entityId(),
+                        JavaRelationType.FIELD_REFERENCE, sourceBlockId, fieldBlockId, asset,
+                        4, "GS", "GF", "P1", "P1|P2")));
+
+        AuditReportResult result = new AuditReportBuilder().build(evidence);
+
+        assertEquals(1, result.blockPairs().size());
+        AuditedBlockPair candidate = result.blockPairs().get(0);
+        assertEquals("db.EnvironmentImpl.missing", candidate.targetEntity());
+        assertEquals("FIELD", candidate.targetEntityType());
+        assertEquals("FIELD_REFERENCE", candidate.dependencyKind());
+    }
+
+    @Test
+    void shouldUseFeatureSpecificConstructorSignatureInsteadOfBroadProviderClassSignature() throws Exception {
+        Path asset = tempDir.resolve("assetConstructorSignature");
+        Files.write(asset, List.of(
+                "class EnvironmentImpl {",
+                "    private Evictor evictor;",
+                "    void execute() {",
+                "        this.evictor = new Evictor(this, \"Evictor\");",
+                "    }",
+                "}"
+        ));
+        ConditionalBlock sourceBlock = block(asset.toString(), ConditionalBlock.DirectiveType.IF, 3, 5,
+                1, "P1");
+        ConditionalBlock fieldBlock = block(asset.toString(), ConditionalBlock.DirectiveType.IF, 2, 2,
+                1, "P1|P2|P3");
+        ConditionalBlock providerBlock = block("assetProvider", ConditionalBlock.DirectiveType.IF, 1, 20,
+                1, "P1|P2|P3");
+        ConditionalBlock constructorBlock = block("assetProvider", ConditionalBlock.DirectiveType.IF, 5, 8,
+                2, "P1|P2");
+        String sourceBlockId = RequiresEvidenceBuilder.blockId(sourceBlock);
+        String fieldBlockId = RequiresEvidenceBuilder.blockId(fieldBlock);
+        String providerBlockId = RequiresEvidenceBuilder.blockId(providerBlock);
+        String constructorBlockId = RequiresEvidenceBuilder.blockId(constructorBlock);
+        JavaEntity execute = entity("S1", JavaEntityType.METHOD, "execute",
+                "db.EnvironmentImpl.execute", asset, 3, 5, sourceBlockId, "GS", "P1");
+        JavaEntity evictorField = entity("F1", JavaEntityType.FIELD, "evictor",
+                "db.EnvironmentImpl.evictor", asset, 2, 2, fieldBlockId, "GF", "P1|P2|P3");
+        JavaEntity evictorClass = entity("T1", JavaEntityType.CLASS, "Evictor",
+                "db.Evictor", Path.of("assetProvider"), 1, 20, providerBlockId, "GP", "P1|P2|P3");
+        JavaEntity constructor = entity("C1", JavaEntityType.CONSTRUCTOR, "Evictor",
+                "db.Evictor.Evictor", Path.of("assetProvider"), 5, 8, constructorBlockId, "GC", "P1|P2");
+        RequiresEvidenceResult evidence = evidence(
+                List.of(sourceBlock, fieldBlock, providerBlock, constructorBlock),
+                List.of(execute, evictorField, evictorClass, constructor),
+                List.of(
+                        dependency("D1", execute.entityId(), evictorField.entityId(),
+                                JavaRelationType.FIELD_REFERENCE, sourceBlockId, fieldBlockId, asset,
+                                4, "GS", "GF", "P1", "P1|P2|P3"),
+                        dependency("D2", execute.entityId(), constructor.entityId(),
+                                JavaRelationType.CONSTRUCTOR_CALL, sourceBlockId, constructorBlockId, asset,
+                                4, "GS", "GC", "P1", "P1|P2")
+                ));
+
+        AuditReportResult result = new AuditReportBuilder().build(evidence);
+
+        assertEquals(1, result.blockPairs().size());
+        AuditedBlockPair candidate = result.blockPairs().get(0);
+        assertEquals("P1|P2", candidate.targetProductSet());
+        assertEquals(ProductSetRelation.SOURCE_SUBSET_OF_TARGET, candidate.productSetRelation());
+        assertEquals(RequiresRelevance.MEDIUM, candidate.requiresRelevance());
+        assertFalse(candidate.cautionReasons().contains("LIFTED_TARGET_COARSE_SIGNATURE"));
+    }
+
+    @Test
+    void shouldCapBroadLiftedFieldOnlyProviderSignatureAtLow() throws Exception {
+        Path asset = tempDir.resolve("assetBroadProvider");
+        Files.write(asset, List.of(
+                "class EnvironmentImpl {",
+                "    private Evictor evictor;",
+                "    void execute() {",
+                "        this.evictor = null;",
+                "    }",
+                "}"
+        ));
+        ConditionalBlock sourceBlock = block(asset.toString(), ConditionalBlock.DirectiveType.IF, 3, 5,
+                1, "P1");
+        ConditionalBlock fieldBlock = block(asset.toString(), ConditionalBlock.DirectiveType.IF, 2, 2,
+                1, "P1|P2|P3");
+        ConditionalBlock providerBlock = block("assetProvider", ConditionalBlock.DirectiveType.IF, 1, 20,
+                1, "P1|P2|P3");
+        String sourceBlockId = RequiresEvidenceBuilder.blockId(sourceBlock);
+        String fieldBlockId = RequiresEvidenceBuilder.blockId(fieldBlock);
+        String providerBlockId = RequiresEvidenceBuilder.blockId(providerBlock);
+        JavaEntity execute = entity("S1", JavaEntityType.METHOD, "execute",
+                "db.EnvironmentImpl.execute", asset, 3, 5, sourceBlockId, "GS", "P1");
+        JavaEntity evictorField = entity("F1", JavaEntityType.FIELD, "evictor",
+                "db.EnvironmentImpl.evictor", asset, 2, 2, fieldBlockId, "GF", "P1|P2|P3");
+        JavaEntity evictorClass = entity("T1", JavaEntityType.CLASS, "Evictor",
+                "db.Evictor", Path.of("assetProvider"), 1, 20, providerBlockId, "GP", "P1|P2|P3");
+        RequiresEvidenceResult evidence = evidence(
+                List.of(sourceBlock, fieldBlock, providerBlock),
+                List.of(execute, evictorField, evictorClass),
+                List.of(dependency("D1", execute.entityId(), evictorField.entityId(),
+                        JavaRelationType.FIELD_REFERENCE, sourceBlockId, fieldBlockId, asset,
+                        4, "GS", "GF", "P1", "P1|P2|P3")));
+
+        AuditReportResult result = new AuditReportBuilder().build(evidence);
+
+        assertEquals(1, result.blockPairs().size());
+        AuditedBlockPair candidate = result.blockPairs().get(0);
+        assertEquals("P1|P2|P3", candidate.targetProductSet());
+        assertEquals(RequiresRelevance.LOW, candidate.requiresRelevance());
+        assertTrue(candidate.cautionReasons().contains("LIFTED_TARGET_COARSE_SIGNATURE"));
     }
 
     private AuditReportResult buildResult(List<JavaEntity> entities, List<DependencyEvidence> dependencies) {

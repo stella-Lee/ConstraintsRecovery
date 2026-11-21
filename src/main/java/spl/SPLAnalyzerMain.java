@@ -16,7 +16,30 @@ import spl.dependency.DependencyGraph;
 import spl.dependency.DependencyGraphExporter;
 import spl.dependency.UnresolvedDependencyRelation;
 import spl.requiresanalysis.DependencyEvidence;
+import spl.requiresanalysis.BranchCompletionObligationDetector;
+import spl.requiresanalysis.CompositionAwareDependencyDetector;
+import spl.requiresanalysis.CompositionAwareDependencyExporter;
+import spl.requiresanalysis.CompositionAwareDependencyResult;
+import spl.requiresanalysis.DisjunctiveImplementationEvidenceExporter;
+import spl.requiresanalysis.DisjunctiveImplementationEvidenceResult;
 import spl.requiresanalysis.EntityRole;
+import spl.requiresanalysis.ProviderReferenceEvidenceDetector;
+import spl.requiresanalysis.ProviderReferenceEvidenceExporter;
+import spl.requiresanalysis.ProviderReferenceEvidenceResult;
+import spl.requiresanalysis.ProviderDataFlowEvidenceDetector;
+import spl.requiresanalysis.ProviderDataFlowEvidenceExporter;
+import spl.requiresanalysis.ProviderDataFlowEvidenceResult;
+import spl.requiresanalysis.OperationProviderEvidenceDetector;
+import spl.requiresanalysis.OperationProviderEvidenceExporter;
+import spl.requiresanalysis.OperationProviderEvidenceResult;
+import spl.requiresanalysis.SignatureProviderBundleEvidenceDetector;
+import spl.requiresanalysis.SignatureProviderBundleEvidenceExporter;
+import spl.requiresanalysis.SignatureProviderBundleEvidence;
+import spl.requiresanalysis.SignatureProviderBundleEvidenceResult;
+import spl.requiresanalysis.ImplementationEvidenceSummary;
+import spl.requiresanalysis.ImplementationEvidenceSummaryBuilder;
+import spl.requiresanalysis.ImplementationEvidenceSummaryExporter;
+import spl.requiresanalysis.ImplementationEvidenceSummaryResult;
 import spl.requiresanalysis.AuditReportBuilder;
 import spl.requiresanalysis.AuditReportExporter;
 import spl.requiresanalysis.AuditReportResult;
@@ -52,7 +75,7 @@ import java.util.Scanner;
 import java.util.stream.Collectors;
 
 public final class SPLAnalyzerMain {
-    private static final Path OUTPUT_DIRECTORY = Path.of("D:\\SPL-Tool\\git\\ConstraintsRecovery\\output");
+    private static final Path OUTPUT_BASE_DIRECTORY = Path.of("output").toAbsolutePath().normalize();
 
     public static void main(String[] args) throws Exception {
         CommandLine commandLine;
@@ -77,7 +100,9 @@ public final class SPLAnalyzerMain {
             return;
         }
         System.out.println("Analyzing asset project: " + assetProject.displayPath());
-        System.out.println("Output directory: " + OUTPUT_DIRECTORY);
+        Path assetRelativePath = AssetProjectPathResolver.BASE_DIRECTORY.relativize(Path.of(assetProject.displayPath()));
+        Path outputDirectory = OUTPUT_BASE_DIRECTORY.resolve(assetRelativePath);
+        System.out.println("Output directory: " + outputDirectory);
 
         ProductSignatureExtractor extractor = new ProductSignatureExtractor();
         List<ConditionalBlock> blocks = extractor.extract(assetProject.normalizedPath());
@@ -86,27 +111,51 @@ public final class SPLAnalyzerMain {
 
         List<Path> assetFiles = new AssetFileScanner().scan(assetProject.normalizedPath());
         EntityExtractionResult entityResult = new JavaEntityExtractor().extract(groups, assetFiles);
-        new EntityResultExporter().export(entityResult, OUTPUT_DIRECTORY);
+        new EntityResultExporter().export(entityResult, outputDirectory);
         printEntitySummary(groups, entityResult);
 
         DependencyGraph graph = new CrossFileDependencyGraphBuilder().build(entityResult);
-        new DependencyGraphExporter().export(graph, OUTPUT_DIRECTORY);
+        new DependencyGraphExporter().export(graph, outputDirectory);
         printDependencySummary(graph);
 
         RequiresEvidenceResult requiresEvidence = new RequiresEvidenceBuilder().build(groups, entityResult, graph);
-        new RequiresEvidenceExporter().export(requiresEvidence, OUTPUT_DIRECTORY);
-        printRequiresEvidenceSummary(requiresEvidence);
+        new RequiresEvidenceExporter().export(requiresEvidence, outputDirectory);
+        printRequiresEvidenceSummary(requiresEvidence, outputDirectory);
+        CompositionAwareDependencyResult compositionResult =
+                new CompositionAwareDependencyDetector().detect(requiresEvidence);
+        new CompositionAwareDependencyExporter().export(compositionResult, outputDirectory);
+        printCompositionAwareDependencySummary(compositionResult, outputDirectory);
         AuditReportResult auditResult = new AuditReportBuilder().build(requiresEvidence);
-        new AuditReportExporter().export(auditResult, OUTPUT_DIRECTORY);
-        printAuditSummary(auditResult);
+        new AuditReportExporter().export(auditResult, outputDirectory);
+        printAuditSummary(auditResult, outputDirectory);
+        DisjunctiveImplementationEvidenceResult disjunctiveResult =
+                new BranchCompletionObligationDetector().detectBranchCompletionObligations(blocks);
+        new DisjunctiveImplementationEvidenceExporter().export(disjunctiveResult, outputDirectory);
+        printDisjunctiveImplementationEvidenceSummary(disjunctiveResult, outputDirectory);
+        ProviderReferenceEvidenceResult providerReferenceResult =
+                new ProviderReferenceEvidenceDetector().detect(groups, entityResult);
+        new ProviderReferenceEvidenceExporter().export(providerReferenceResult, outputDirectory);
+        printProviderReferenceEvidenceSummary(providerReferenceResult, outputDirectory);
+        ProviderDataFlowEvidenceResult providerDataFlowResult =
+                new ProviderDataFlowEvidenceDetector().detect(groups, entityResult);
+        new ProviderDataFlowEvidenceExporter().export(providerDataFlowResult, outputDirectory);
+        printProviderDataFlowEvidenceSummary(providerDataFlowResult, outputDirectory);
+        OperationProviderEvidenceResult operationProviderResult =
+                new OperationProviderEvidenceDetector().detect(providerDataFlowResult);
+        new OperationProviderEvidenceExporter().export(operationProviderResult, outputDirectory);
+        printOperationProviderEvidenceSummary(operationProviderResult, outputDirectory);
+        SignatureProviderBundleEvidenceResult signatureProviderBundleResult =
+                new SignatureProviderBundleEvidenceDetector().detect(operationProviderResult);
+        new SignatureProviderBundleEvidenceExporter().export(signatureProviderBundleResult, outputDirectory);
+        printSignatureProviderBundleEvidenceSummary(signatureProviderBundleResult, outputDirectory);
+        ImplementationEvidenceSummaryResult implementationSummaryResult =
+                new ImplementationEvidenceSummaryBuilder().build(signatureProviderBundleResult);
+        new ImplementationEvidenceSummaryExporter().export(implementationSummaryResult, outputDirectory);
+        printImplementationEvidenceSummary(implementationSummaryResult, outputDirectory);
         if (commandLine.candidateDetailsId() != null) {
             System.out.println();
             System.out.println("--candidate-details is a legacy feature-candidate option and is not run in the requires-analysis default pipeline.");
         }
-    }
-
-    private static Path outputFile(String fileName) {
-        return OUTPUT_DIRECTORY.resolve(fileName);
     }
 
     private static String promptForAssetSubdirectory() {
@@ -314,7 +363,7 @@ public final class SPLAnalyzerMain {
                 .count();
     }
 
-    private static void printRequiresEvidenceSummary(RequiresEvidenceResult result) {
+    private static void printRequiresEvidenceSummary(RequiresEvidenceResult result, Path outputDirectory) {
         System.out.println();
         System.out.println("Requires-analysis structural evidence:");
         System.out.println("Conditional blocks    : " + result.blocks().size());
@@ -322,11 +371,11 @@ public final class SPLAnalyzerMain {
         System.out.println("Block dependencies    : " + result.dependencies().size());
         System.out.println("Entity classifications: " + result.classifications().size());
         System.out.println("Output files:");
-        System.out.println("- " + outputFile("blocks.csv"));
-        System.out.println("- " + outputFile("block-entities.csv"));
-        System.out.println("- " + outputFile("block-dependencies.csv"));
-        System.out.println("- " + outputFile("entity-classification.csv"));
-        System.out.println("- " + outputFile("block-summary.csv"));
+        System.out.println("- " + outputDirectory.resolve("blocks.csv"));
+        System.out.println("- " + outputDirectory.resolve("block-entities.csv"));
+        System.out.println("- " + outputDirectory.resolve("block-dependencies.csv"));
+        System.out.println("- " + outputDirectory.resolve("entity-classification.csv"));
+        System.out.println("- " + outputDirectory.resolve("block-summary.csv"));
 
         System.out.println("Entity roles:");
         Map<EntityRole, Long> roleCounts = result.classifications().stream()
@@ -362,22 +411,171 @@ public final class SPLAnalyzerMain {
                 ));
     }
 
-    private static void printAuditSummary(AuditReportResult result) {
+    private static void printAuditSummary(AuditReportResult result, Path outputDirectory) {
         System.out.println();
         System.out.println("Audited requires-analysis evidence:");
         System.out.println("Audited entities   : " + result.entityClassifications().size());
         System.out.println("Audited block pairs: " + result.blockPairs().size());
         System.out.println("Output files:");
-        System.out.println("- " + outputFile("audited-entity-classification.csv"));
-        System.out.println("- " + outputFile("requires_candidates.csv"));
-        System.out.println("- " + outputFile("requires_candidate_evidence.csv"));
-        System.out.println("- " + outputFile("requires_candidate_details.csv"));
+        System.out.println("- " + outputDirectory.resolve("audited-entity-classification.csv"));
+        System.out.println("- " + outputDirectory.resolve("requires_candidates.csv"));
+        System.out.println("- " + outputDirectory.resolve("requires_candidate_evidence.csv"));
+        System.out.println("- " + outputDirectory.resolve("requires_candidate_details.csv"));
         System.out.println("Requires relevance hypotheses:");
         Map<RequiresRelevance, Long> relevanceCounts = result.blockPairs().stream()
                 .collect(Collectors.groupingBy(pair -> pair.requiresRelevance(), Collectors.counting()));
         for (RequiresRelevance relevance : RequiresRelevance.values()) {
             System.out.println("- " + relevance + ": " + relevanceCounts.getOrDefault(relevance, 0L));
         }
+    }
+
+    private static void printCompositionAwareDependencySummary(CompositionAwareDependencyResult result, Path outputDirectory) {
+        System.out.println();
+        System.out.println("Composition-aware dependency evidence:");
+        System.out.println("Examined method calls : " + result.examinedMethodCalls());
+        System.out.println("Wrapper delegations   : " + result.dependencies().size());
+        System.out.println("Used for scoring      : false");
+        System.out.println("Output files:");
+        System.out.println("- " + outputDirectory.resolve("composition_dependencies.csv"));
+        result.dependencies().stream()
+                .limit(10)
+                .forEach(dependency -> System.out.println("- " + dependency.dependencyId()
+                        + " " + dependency.wrapperBaseName()
+                        + " " + dependency.sourceSignature()
+                        + " -> " + dependency.targetSignature()
+                        + " suffixIgnored=" + dependency.ignoredWrapperSuffix()));
+    }
+
+    private static void printDisjunctiveImplementationEvidenceSummary(DisjunctiveImplementationEvidenceResult result, Path outputDirectory) {
+        System.out.println();
+        System.out.println("Disjunctive branch-completion implementation evidence:");
+        System.out.println("Examined branch obligations: " + result.examinedBranchObligations());
+        System.out.println("Candidates                 : " + result.candidates().size());
+        System.out.println("Output files:");
+        System.out.println("- " + outputDirectory.resolve("disjunctive_implementation_evidence.csv"));
+        result.candidates().stream()
+                .limit(10)
+                .forEach(candidate -> System.out.printf(
+                        "- %s %s -> %s method=%s location=%s%n",
+                        candidate.candidateId(),
+                        candidate.sourceSignature(),
+                        String.join(" OR ", candidate.providerSignatureSet()),
+                        candidate.evidenceMethod(),
+                        candidate.evidenceLocation()
+                ));
+    }
+
+    private static void printProviderReferenceEvidenceSummary(ProviderReferenceEvidenceResult result, Path outputDirectory) {
+        System.out.println();
+        System.out.println("Provider type-reference recall evidence:");
+        System.out.println("Examined TYPE_REFERENCE relations: " + result.examinedTypeReferences());
+        System.out.println("Recall evidence candidates     : " + result.evidence().size());
+        System.out.println("Skipped unresolved references  : " + result.unresolvedReferences());
+        System.out.println("Skipped external/non-provider  : " + result.externalReferences());
+        System.out.println("Skipped common targets         : " + result.commonTargetReferences());
+        System.out.println("Skipped non-subset signatures  : " + result.nonSubsetReferences());
+        System.out.println("Output files:");
+        System.out.println("- " + outputDirectory.resolve("provider_reference_evidence.csv"));
+        result.evidence().stream()
+                .limit(10)
+                .forEach(evidence -> System.out.printf(
+                        "- %s %s -> %s sourceSig=%s targetSig=%s line=%d%n",
+                        evidence.evidenceId(),
+                        evidence.sourceEntityName(),
+                        evidence.targetEntityName(),
+                        evidence.sourceSignature(),
+                        evidence.targetSignature(),
+                        evidence.sourceLine()
+                ));
+    }
+
+    private static void printProviderDataFlowEvidenceSummary(ProviderDataFlowEvidenceResult result, Path outputDirectory) {
+        System.out.println();
+        System.out.println("Provider data-flow-lite recall evidence:");
+        System.out.println("Examined relations          : " + result.examinedRelations());
+        System.out.println("Recall evidence candidates : " + result.evidence().size());
+        System.out.println("Skipped unresolved rels    : " + result.unresolvedRelations());
+        System.out.println("Skipped unresolved provider: " + result.unresolvedProviders());
+        System.out.println("Skipped common providers   : " + result.commonProviderTargets());
+        System.out.println("Skipped non-subset rels    : " + result.nonSubsetRelations());
+        System.out.println("Output files:");
+        System.out.println("- " + outputDirectory.resolve("provider_dataflow_evidence.csv"));
+        result.evidence().stream()
+                .limit(10)
+                .forEach(evidence -> System.out.printf(
+                        "- %s %s %s -> %s sourceSig=%s providerSig=%s line=%d%n",
+                        evidence.evidenceId(),
+                        evidence.evidenceKind(),
+                        evidence.sourceEntityName(),
+                        evidence.providerEntityName(),
+                        evidence.sourceSignature(),
+                        evidence.providerSignature(),
+                        evidence.sourceLine()
+                ));
+    }
+
+    private static void printOperationProviderEvidenceSummary(OperationProviderEvidenceResult result, Path outputDirectory) {
+        System.out.println();
+        System.out.println("Operation-level provider recall evidence:");
+        System.out.println("Input provider evidence : " + result.inputProviderEvidenceCount());
+        System.out.println("Operation candidates    : " + result.operationCandidateCount());
+        System.out.println("Output files:");
+        System.out.println("- " + outputDirectory.resolve("operation_provider_evidence.csv"));
+        result.evidence().stream()
+                .limit(10)
+                .forEach(evidence -> System.out.printf(
+                        "- %s %s -> %s sourceSig=%s providerSig=%s support=%d%n",
+                        evidence.evidenceId(),
+                        evidence.operationKey(),
+                        evidence.providerEntityName(),
+                        evidence.sourceSignature(),
+                        evidence.providerSignature(),
+                        evidence.supportingRelationCount()
+                ));
+    }
+
+    private static void printSignatureProviderBundleEvidenceSummary(SignatureProviderBundleEvidenceResult result, Path outputDirectory) {
+        System.out.println();
+        System.out.println("Signature-provider bundle recall evidence:");
+        System.out.println("Input operation evidence: " + result.inputOperationEvidenceCount());
+        System.out.println("Bundle candidates       : " + result.bundleCount());
+        System.out.println("Output files:");
+        System.out.println("- " + outputDirectory.resolve("signature_provider_bundle_evidence.csv"));
+        result.evidence().stream()
+                .sorted(Comparator.comparingInt(SignatureProviderBundleEvidence::supportingRelationCount).reversed()
+                        .thenComparing(evidence -> evidence.sourceSignature().toString())
+                        .thenComparing(evidence -> evidence.providerSignature().toString()))
+                .limit(10)
+                .forEach(evidence -> System.out.printf(
+                        "- %s %s -> %s operations=%d providers=%d support=%d%n",
+                        evidence.evidenceId(),
+                        evidence.sourceSignature(),
+                        evidence.providerSignature(),
+                        evidence.operationCount(),
+                        evidence.providerCount(),
+                        evidence.supportingRelationCount()
+                ));
+    }
+
+    private static void printImplementationEvidenceSummary(ImplementationEvidenceSummaryResult result, Path outputDirectory) {
+        System.out.println();
+        System.out.println("Concise implementation evidence summary:");
+        System.out.println("Input bundles : " + result.inputBundleCount());
+        System.out.println("Summary rows  : " + result.summaryCount());
+        System.out.println("Output files:");
+        System.out.println("- " + outputDirectory.resolve("implementation_evidence_summary.csv"));
+        result.summaries().stream()
+                .limit(10)
+                .forEach(summary -> System.out.printf(
+                        "- %s %s %s -> %s support=%d providers=%s tokens=%s%n",
+                        summary.summaryId(),
+                        summary.evidenceImportance(),
+                        summary.sourceSignature(),
+                        summary.providerSignature(),
+                        summary.supportingRelationCount(),
+                        summary.representativeProviders(),
+                        summary.representativeTokens()
+                ));
     }
 
     private static void printFeatureEffectSummary(List<SignatureGroup> groups,

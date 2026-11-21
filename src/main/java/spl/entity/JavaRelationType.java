@@ -6,5 +6,6 @@ public enum JavaRelationType {
     CONSTRUCTOR_CALL,
     EXTENDS,
     IMPLEMENTS,
-    FIELD_REFERENCE
+    FIELD_REFERENCE,
+    FIELD_ACCESS_LIFTED_TO_TYPE
 }

@@ -137,7 +137,7 @@ public final class DependencyEvidenceScorer {
         return switch (type) {
             case EXTENDS, IMPLEMENTS -> 0.9;
             case METHOD_CALL, CONSTRUCTOR_CALL -> 0.75;
-            case FIELD_REFERENCE -> 0.6;
+            case FIELD_REFERENCE, FIELD_ACCESS_LIFTED_TO_TYPE -> 0.6;
             case TYPE_REFERENCE -> 0.45;
         };
     }

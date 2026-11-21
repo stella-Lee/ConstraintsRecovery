@@ -883,6 +883,7 @@ public final class JavaEntityExtractor {
                 case METHOD_CALL -> resolveMethod(draft);
                 case CONSTRUCTOR_CALL -> resolveConstructor(draft, sourceEntityId);
                 case FIELD_REFERENCE -> resolveField(draft, sourceEntityId);
+                case FIELD_ACCESS_LIFTED_TO_TYPE -> new TargetResolution(null, ResolutionStatus.UNRESOLVED);
             };
         }
 

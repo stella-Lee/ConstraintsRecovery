@@ -8,6 +8,7 @@ public final class DependencyKindClassifier {
 
     public static boolean isImplementationDependency(JavaRelationType type) {
         return type == JavaRelationType.FIELD_REFERENCE
+                || type == JavaRelationType.FIELD_ACCESS_LIFTED_TO_TYPE
                 || type == JavaRelationType.METHOD_CALL
                 || type == JavaRelationType.CONSTRUCTOR_CALL;
     }
